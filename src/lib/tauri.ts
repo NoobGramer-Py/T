@@ -61,7 +61,6 @@ export interface NmapResult {
 }
 
 export const nmapScan           = (target: string, flags: string) => invoke<NmapResult>("nmap_scan", { target, flags });
-export const checkIpReputation  = (ip: string) => invoke<{ ip: string; reputation: "clean" | "suspicious" | "malicious"; detail: string }>("check_ip_reputation", { ip });
 export const getOpenPorts       = (host: string) => invoke<{ port: number; service: string }[]>("get_open_ports", { host });
 export const analyzeProcesses   = () => invoke<{ pid: number; name: string; suspicion: "clean" | "suspicious" | "critical"; reason: string }[]>("analyze_processes");
 export const checkDnsLeak       = () => invoke<{ leaking: boolean; servers: string[] }>("check_dns_leak");
@@ -261,6 +260,16 @@ function mockInvoke<T>(cmd: string, _args?: Record<string, unknown>): T {
     check_password_strength:  { score: 3, label: "Strong", feedback: [], entropy: 60.5 },
     check_url_safety:         { url: "mock", safe: true, detail: "Malicious: 0 | Suspicious: 0 | Clean: 72 (mock)" },
     get_security_log:         [{ time: "2026-01-01", level: "Info", source: "Security", message: "Mock event" }],
+    // Phase 5 security
+    ip_intel:                 { ip: "1.1.1.1", hostname: "one.one.one.one", country: "Australia", region: "Queensland", city: "Brisbane", org: "AS13335 Cloudflare", asn: "AS13335", isp: "Cloudflare", latitude: -27.47, longitude: 153.02, abuse_score: 0, abuse_detail: "No reports (mock)", open_ports: [80, 443] },
+    email_osint:              { email: "mock@example.com", valid: true, domain: "example.com", mx_records: ["mail.example.com"], gravatar_url: null, breaches: [], breach_count: 0, paste_count: 0 },
+    cve_search:               [],
+    full_port_scan:           { host: "mock", open: [{ port: 80, service: "HTTP" }, { port: 443, service: "HTTPS" }], scanned: 1024, duration_ms: 1200 },
+    // Network
+    get_active_connections:   [{ protocol: "TCP", local_addr: "127.0.0.1:3000", remote_addr: "0.0.0.0:0", state: "LISTEN", pid: "1234" }],
+    get_network_interfaces:   [{ name: "Ethernet", ip_v4: "192.168.1.100", ip_v6: "", mac: "AA:BB:CC:DD:EE:FF", status: "up", speed_mbps: "1000" }],
+    check_ssl_cert:           { host: "mock", valid: true, subject: "CN=mock.com", issuer: "Let's Encrypt", not_before: "2026-01-01", not_after: "2026-04-01", days_left: 21, san: ["mock.com"], version: "TLSv1.3" },
+    get_http_headers:         { url: "https://mock.com", status: 200, status_text: "OK", headers: [["content-type", "text/html"], ["server", "nginx"]] },
   };
   return (mocks[cmd] ?? null) as T;
 }

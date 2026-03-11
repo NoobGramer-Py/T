@@ -75,6 +75,7 @@ function ProfileSection() {
       <Field label="GROQ API KEY" value={profile.groqKey} onChange={(v) => setProfile({ groqKey: v })} type="password" placeholder="gsk_..." />
       <Field label="ABUSEIPDB API KEY" value={profile.abuseipdbKey} onChange={(v) => setProfile({ abuseipdbKey: v })} type="password" placeholder="For IP reputation checks" />
       <Field label="VIRUSTOTAL API KEY" value={profile.virusTotalKey} onChange={(v) => setProfile({ virusTotalKey: v })} type="password" placeholder="For URL safety checks" />
+      <Field label="HIBP API KEY" value={profile.hibpKey} onChange={(v) => setProfile({ hibpKey: v })} type="password" placeholder="haveibeenpwned.com — free key at haveibeenpwned.com/API/Key" />
       <Field label="TIMEZONE" value={profile.timezone} onChange={(v) => setProfile({ timezone: v })} placeholder="e.g. Asia/Karachi" />
       <div style={{ marginBottom: 14 }}>
         <div style={{ fontSize: 7, letterSpacing: 4, color: "rgba(255,179,0,0.4)", marginBottom: 5 }}>NOTES FOR T</div>

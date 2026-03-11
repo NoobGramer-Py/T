@@ -921,9 +921,12 @@ pub async fn cve_search(query: String) -> Result<Vec<CveEntry>, String> {
             let m31 = &cve["metrics"]["cvssMetricV31"];
             let m30 = &cve["metrics"]["cvssMetricV30"];
             let m2  = &cve["metrics"]["cvssMetricV2"];
-            let src = if m31.is_array() && !m31.as_array().unwrap().is_empty() { &m31[0] }
-                      else if m30.is_array() && !m30.as_array().unwrap().is_empty() { &m30[0] }
-                      else { &m2[0] };
+            let empty: Vec<serde_json::Value> = vec![];
+            let src = if m31.as_array().map(|a| !a.is_empty()).unwrap_or(false) { &m31[0] }
+                      else if m30.as_array().map(|a| !a.is_empty()).unwrap_or(false) { &m30[0] }
+                      else if m2.as_array().map(|a| !a.is_empty()).unwrap_or(false) { &m2[0] }
+                      else { return None; };
+            let _ = &empty;
             let score    = src["cvssData"]["baseScore"].as_f64().unwrap_or(0.0);
             let severity = src["cvssData"]["baseSeverity"]
                 .as_str()
