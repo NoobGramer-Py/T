@@ -313,6 +313,21 @@ export const emailOsint = (email: string, hibp_key: string) =>
 
 // ─── CVE Search ───────────────────────────────────────────────────────────────
 
+export interface PortEntry {
+  port:    number;
+  service: string;
+}
+
+export interface FullScanResult {
+  host:        string;
+  open:        PortEntry[];
+  scanned:     number;
+  duration_ms: number;
+}
+
+export const fullPortScan = (host: string, start_port: number, end_port: number) =>
+  invoke<FullScanResult>("full_port_scan", { host, start_port, end_port });
+
 export interface CveEntry {
   id:          string;
   description: string;

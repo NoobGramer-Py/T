@@ -2,14 +2,14 @@ import { useState } from "react";
 import {
   nmapScan, checkIpReputationV2, getOpenPorts, analyzeProcesses,
   checkDnsLeak, getVpnStatus, getFirewallRules, checkPasswordStrength,
-  checkUrlSafety, getSecurityLog, ipIntel, emailOsint, cveSearch,
+  checkUrlSafety, getSecurityLog, ipIntel, emailOsint, cveSearch, fullPortScan,
 } from "../../lib/tauri";
-import type { FirewallRule, PasswordStrength, SecurityEvent, IpIntelResult, EmailOsintResult, CveEntry } from "../../lib/tauri";
+import type { FirewallRule, PasswordStrength, SecurityEvent, IpIntelResult, EmailOsintResult, CveEntry, FullScanResult } from "../../lib/tauri";
 import { useTStore } from "../../store";
 
 // ─── Shared ───────────────────────────────────────────────────────────────────
 
-type Tab = "scanner" | "iprep" | "ports" | "processes" | "dns" | "vpn" | "firewall" | "password" | "url" | "log" | "ipintel" | "emailosint" | "cve";
+type Tab = "scanner" | "iprep" | "ports" | "processes" | "dns" | "vpn" | "firewall" | "password" | "url" | "log" | "ipintel" | "emailosint" | "cve" | "fullscan";
 
 function SectionHeader({ title, icon }: { title: string; icon: string }) {
   return (
@@ -657,7 +657,7 @@ function EmailOsintTab() {
     if (!email.trim()) return;
     setLoading(true); setError(""); setResult(null);
     try {
-      setResult(await emailOsint(email.trim(), hibpKey || profile.abuseipdbKey));
+      setResult(await emailOsint(email.trim(), hibpKey || profile.hibpKey));
     } catch (e) { setError(e instanceof Error ? e.message : "Failed"); }
     finally { setLoading(false); }
   };
@@ -822,10 +822,128 @@ function CveTab() {
 
 // ─── Main Panel ───────────────────────────────────────────────────────────────
 
+
+// ─── Full Port Scanner ────────────────────────────────────────────────────────
+
+function FullPortScanTab() {
+  const [host, setHost]         = useState("");
+  const [startPort, setStartPort] = useState("1");
+  const [endPort, setEndPort]   = useState("1024");
+  const [result, setResult]     = useState<FullScanResult | null>(null);
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState("");
+
+  const run = async () => {
+    const s = parseInt(startPort, 10);
+    const e = parseInt(endPort, 10);
+    if (!host.trim()) { setError("Enter a host or IP"); return; }
+    if (isNaN(s) || isNaN(e) || s < 1 || e > 65535 || s > e) { setError("Invalid port range (1-65535, start ≤ end)"); return; }
+    if (e - s + 1 > 10000) { setError("Maximum 10 000 ports per scan"); return; }
+    setLoading(true); setError(""); setResult(null);
+    try {
+      setResult(await fullPortScan(host.trim(), s, e));
+    } catch (err) { setError(err instanceof Error ? err.message : "Scan failed"); }
+    finally { setLoading(false); }
+  };
+
+  const presets = [
+    { label: "TOP 100",  s: "1",   e: "1024"  },
+    { label: "TOP 1K",   s: "1",   e: "1000"  },
+    { label: "WEB",      s: "80",  e: "9000"  },
+    { label: "DB",       s: "1433",e: "27017" },
+  ];
+
+  return (
+    <div>
+      <SectionHeader title="FULL PORT SCANNER" icon="⬡" />
+      <div style={{ fontSize: 9, color: "rgba(255,179,0,0.35)", marginBottom: 12 }}>
+        Parallel TCP connect scan · Max 10 000 ports · Only scan systems you own or have permission to test
+      </div>
+
+      <Field label="HOST / IP" value={host} onChange={setHost} placeholder="192.168.1.1 or example.com" />
+
+      <div style={{ display: "flex", gap: 10, marginBottom: 12, alignItems: "flex-end" }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.4)", marginBottom: 4 }}>START PORT</div>
+          <input
+            value={startPort} onChange={(e) => setStartPort(e.target.value)}
+            style={{ width: "100%", background: "rgba(255,179,0,0.04)", border: "1px solid rgba(255,179,0,0.15)", borderRadius: 3, padding: "6px 10px", color: "rgba(255,230,102,0.9)", fontSize: 11, fontFamily: "inherit", outline: "none" }}
+          />
+        </div>
+        <div style={{ fontSize: 10, color: "rgba(255,179,0,0.3)", paddingBottom: 8 }}>–</div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.4)", marginBottom: 4 }}>END PORT</div>
+          <input
+            value={endPort} onChange={(e) => setEndPort(e.target.value)}
+            style={{ width: "100%", background: "rgba(255,179,0,0.04)", border: "1px solid rgba(255,179,0,0.15)", borderRadius: 3, padding: "6px 10px", color: "rgba(255,230,102,0.9)", fontSize: 11, fontFamily: "inherit", outline: "none" }}
+          />
+        </div>
+      </div>
+
+      {/* Presets */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+        {presets.map((p) => (
+          <button key={p.label} onClick={() => { setStartPort(p.s); setEndPort(p.e); }}
+            style={{ fontSize: 7, letterSpacing: 2, padding: "3px 10px", background: "transparent", border: "1px solid rgba(255,179,0,0.2)", color: "rgba(255,179,0,0.5)", borderRadius: 2, cursor: "pointer", fontFamily: "inherit" }}>
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      <Btn label={loading ? `SCANNING···` : "RUN SCAN"} onClick={run} disabled={loading || !host.trim()} />
+      {error && <div style={{ fontSize: 9, color: "#ff4400", marginTop: 10 }}>{error}</div>}
+
+      {result && (
+        <ResultBox>
+          {/* Summary row */}
+          <div style={{ display: "flex", gap: 24, marginBottom: 14, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.35)", marginBottom: 3 }}>HOST</div>
+              <div style={{ fontSize: 10, color: "rgba(255,230,102,0.85)" }}>{result.host}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.35)", marginBottom: 3 }}>SCANNED</div>
+              <div style={{ fontSize: 10, color: "rgba(255,230,102,0.85)" }}>{result.scanned.toLocaleString()} ports</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.35)", marginBottom: 3 }}>OPEN</div>
+              <div style={{ fontSize: 18, fontWeight: "bold", color: result.open.length > 0 ? "#ff6e00" : "#00ff88", textShadow: result.open.length > 0 ? "0 0 10px #ff6e00" : "0 0 8px #00ff88" }}>
+                {result.open.length}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.35)", marginBottom: 3 }}>DURATION</div>
+              <div style={{ fontSize: 10, color: "rgba(255,230,102,0.85)" }}>{(result.duration_ms / 1000).toFixed(1)}s</div>
+            </div>
+          </div>
+
+          {result.open.length === 0
+            ? <div style={{ fontSize: 9, color: "#00ff88" }}>No open ports found in range</div>
+            : (
+              <div>
+                <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.35)", marginBottom: 8 }}>OPEN PORTS</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 6 }}>
+                  {result.open.map((p) => (
+                    <div key={p.port} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 10px", background: "rgba(255,110,0,0.05)", border: "1px solid rgba(255,110,0,0.2)", borderRadius: 3 }}>
+                      <span style={{ fontSize: 11, fontWeight: "bold", color: "#ff6e00", minWidth: 36 }}>{p.port}</span>
+                      <span style={{ fontSize: 8, color: "rgba(255,179,0,0.55)", letterSpacing: 1 }}>{p.service || "UNKNOWN"}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          }
+        </ResultBox>
+      )}
+    </div>
+  );
+}
+
 const TABS: { id: Tab; label: string }[] = [
   { id: "scanner",   label: "NMAP"      },
   { id: "iprep",     label: "IP REP"    },
   { id: "ipintel",   label: "IP INTEL"  },
+  { id: "fullscan",  label: "PORT SCAN" },
   { id: "emailosint",label: "EMAIL OSINT"},
   { id: "cve",       label: "CVE SEARCH"},
   { id: "ports",     label: "PORTS"     },
@@ -863,6 +981,7 @@ export function SecurityPanel() {
         {tab === "scanner"    && <ScannerTab />}
         {tab === "iprep"      && <IpRepTab />}
         {tab === "ipintel"    && <IpIntelTab />}
+        {tab === "fullscan"   && <FullPortScanTab />}
         {tab === "emailosint" && <EmailOsintTab />}
         {tab === "cve"        && <CveTab />}
         {tab === "ports"      && <PortsTab />}

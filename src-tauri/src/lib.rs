@@ -37,6 +37,7 @@ pub fn run() {
             security::ip_intel,
             security::email_osint,
             security::cve_search,
+            security::full_port_scan,
             // Network
             network::ping_host,
             network::traceroute,

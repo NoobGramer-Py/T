@@ -1,6 +1,7 @@
 use serde::Serialize;
 use sysinfo::System;
 use std::process::Command;
+use std::sync::Arc;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -569,18 +570,28 @@ pub async fn ip_intel(ip: String, abuse_key: String) -> Result<IpIntelResult, St
         (0, "No AbuseIPDB key — set in Settings".into())
     };
 
-    // ── Fast port probe on common ports ──────────────────────────────────────
+    // ── Fast parallel port probe on common ports ─────────────────────────────
     let probe_ports: &[u16] = &[21, 22, 23, 25, 53, 80, 110, 143, 443, 445, 3306, 3389, 5900, 8080, 8443];
-    let mut open_ports = Vec::new();
+    let sem = Arc::new(tokio::sync::Semaphore::new(15));
+    let mut handles = Vec::new();
     for &port in probe_ports {
-        let addr = format!("{}:{}", ip, port);
-        if tokio::net::TcpStream::connect(&addr)
-            .await
-            .is_ok()
-        {
-            open_ports.push(port);
-        }
+        let ip_clone = ip.clone();
+        let sem_clone = sem.clone();
+        handles.push(tokio::spawn(async move {
+            let _permit = sem_clone.acquire().await.unwrap();
+            let addr = format!("{}:{}", ip_clone, port);
+            let open = tokio::time::timeout(
+                std::time::Duration::from_millis(600),
+                tokio::net::TcpStream::connect(&addr),
+            ).await.map(|r| r.is_ok()).unwrap_or(false);
+            if open { Some(port) } else { None }
+        }));
     }
+    let mut open_ports = Vec::new();
+    for h in handles {
+        if let Ok(Some(port)) = h.await { open_ports.push(port); }
+    }
+    open_ports.sort_unstable();
 
     Ok(IpIntelResult {
         ip, hostname, country, region, city,
@@ -777,6 +788,82 @@ pub async fn email_osint(email: String, hibp_key: String) -> Result<EmailOsintRe
     Ok(EmailOsintResult {
         email, valid, domain, mx_records,
         gravatar_url, breaches, breach_count, paste_count,
+    })
+}
+
+
+// ─── Full Port Scanner ────────────────────────────────────────────────────────
+
+/// Extended service name map for port scanner results.
+const SERVICE_MAP: &[(u16, &str)] = &[
+    (21,"FTP"),(22,"SSH"),(23,"Telnet"),(25,"SMTP"),(53,"DNS"),
+    (80,"HTTP"),(110,"POP3"),(119,"NNTP"),(123,"NTP"),(135,"MSRPC"),
+    (139,"NetBIOS"),(143,"IMAP"),(194,"IRC"),(443,"HTTPS"),(445,"SMB"),
+    (465,"SMTPS"),(587,"SMTP"),(631,"IPP"),(993,"IMAPS"),(995,"POP3S"),
+    (1433,"MSSQL"),(1723,"PPTP"),(3306,"MySQL"),(3389,"RDP"),
+    (5432,"PostgreSQL"),(5900,"VNC"),(6379,"Redis"),(8080,"HTTP-Alt"),
+    (8443,"HTTPS-Alt"),(8888,"HTTP-Alt2"),(9200,"Elasticsearch"),
+    (27017,"MongoDB"),(27018,"MongoDB"),(50000,"DB2"),
+];
+
+#[derive(Serialize)]
+pub struct FullScanResult {
+    pub host:        String,
+    pub open:        Vec<PortEntry>,
+    pub scanned:     u32,
+    pub duration_ms: u64,
+}
+
+#[tauri::command]
+pub async fn full_port_scan(host: String, start_port: u16, end_port: u16) -> Result<FullScanResult, String> {
+    validate_target(&host)?;
+
+    if end_port < start_port {
+        return Err("end_port must be >= start_port".into());
+    }
+    // Cap range to prevent runaway scans
+    let range_size = (end_port as u32).saturating_sub(start_port as u32) + 1;
+    if range_size > 10_000 {
+        return Err("Range too large. Maximum 10 000 ports per scan.".into());
+    }
+
+    let started   = std::time::Instant::now();
+    let sem       = Arc::new(tokio::sync::Semaphore::new(256));
+    let mut handles = Vec::new();
+
+    for port in start_port..=end_port {
+        let host_clone = host.clone();
+        let sem_clone  = sem.clone();
+        handles.push(tokio::spawn(async move {
+            let _permit = sem_clone.acquire().await.unwrap();
+            let addr    = format!("{}:{}", host_clone, port);
+            let open    = tokio::time::timeout(
+                std::time::Duration::from_millis(500),
+                tokio::net::TcpStream::connect(&addr),
+            ).await.map(|r| r.is_ok()).unwrap_or(false);
+            if open { Some(port) } else { None }
+        }));
+    }
+
+    let mut open_ports: Vec<u16> = Vec::new();
+    for h in handles {
+        if let Ok(Some(port)) = h.await { open_ports.push(port); }
+    }
+    open_ports.sort_unstable();
+
+    let open: Vec<PortEntry> = open_ports.iter().map(|&p| {
+        let service = SERVICE_MAP.iter()
+            .find(|&&(sp, _)| sp == p)
+            .map(|(_, s)| s.to_string())
+            .unwrap_or_default();
+        PortEntry { port: p, service }
+    }).collect();
+
+    Ok(FullScanResult {
+        host,
+        open,
+        scanned:     range_size,
+        duration_ms: started.elapsed().as_millis() as u64,
     })
 }
 

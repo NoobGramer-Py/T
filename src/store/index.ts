@@ -27,6 +27,7 @@ export interface UserProfile {
   groqKey:       string;
   abuseipdbKey:  string;
   virusTotalKey: string;
+  hibpKey:       string;
   timezone:      string;
   notes:         string;
 }
@@ -110,7 +111,7 @@ export const useTStore = create<TStore>((set) => ({
   setProvider: (provider) => set({ provider }),
 
   // ── User profile
-  profile: { name: "", groqKey: "", abuseipdbKey: "", virusTotalKey: "", timezone: "", notes: "" },
+  profile: { name: "", groqKey: "", abuseipdbKey: "", virusTotalKey: "", hibpKey: "", timezone: "", notes: "" },
   setProfile: (partial) => set((s) => ({ profile: { ...s.profile, ...partial } })),
 
   // ── Memory loaded

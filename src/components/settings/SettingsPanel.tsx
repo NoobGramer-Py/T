@@ -59,6 +59,7 @@ function ProfileSection() {
         dbSetProfile("groqKey",       profile.groqKey),
         dbSetProfile("abuseipdbKey",  profile.abuseipdbKey),
         dbSetProfile("virusTotalKey", profile.virusTotalKey),
+        dbSetProfile("hibpKey",       profile.hibpKey),
         dbSetProfile("timezone",      profile.timezone),
         dbSetProfile("notes",         profile.notes),
       ]);

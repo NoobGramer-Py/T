@@ -23,6 +23,7 @@ export function useMemoryBoot() {
           groqKey:       profileMap["groqKey"]       ?? "",
           abuseipdbKey:  profileMap["abuseipdbKey"]  ?? "",
           virusTotalKey: profileMap["virusTotalKey"] ?? "",
+          hibpKey:       profileMap["hibpKey"]       ?? "",
           timezone:      profileMap["timezone"]      ?? "",
           notes:         profileMap["notes"]         ?? "",
         });
