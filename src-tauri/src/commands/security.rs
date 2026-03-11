@@ -479,3 +479,384 @@ pub fn get_security_log() -> Result<Vec<SecurityEvent>, String> {
         }
     }
 }
+
+// ─── IP Intelligence ──────────────────────────────────────────────────────────
+
+#[derive(Serialize)]
+pub struct IpIntelResult {
+    pub ip:           String,
+    pub hostname:     String,
+    pub country:      String,
+    pub region:       String,
+    pub city:         String,
+    pub org:          String,
+    pub asn:          String,
+    pub isp:          String,
+    pub latitude:     f64,
+    pub longitude:    f64,
+    pub abuse_score:  u32,
+    pub abuse_detail: String,
+    pub open_ports:   Vec<u16>,
+}
+
+#[tauri::command]
+pub async fn ip_intel(ip: String, abuse_key: String) -> Result<IpIntelResult, String> {
+    validate_target(&ip)?;
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    // ── Geo + ASN via ipapi.co (free, no key) ─────────────────────────────────
+    let geo_url = format!("https://ipapi.co/{}/json/", ip);
+    let geo: serde_json::Value = client
+        .get(&geo_url)
+        .header("User-Agent", "T-Assistant/1.0")
+        .send().await.map_err(|e| e.to_string())?
+        .json().await.map_err(|e| e.to_string())?;
+
+    let country  = geo["country_name"].as_str().unwrap_or("").to_string();
+    let region   = geo["region"].as_str().unwrap_or("").to_string();
+    let city     = geo["city"].as_str().unwrap_or("").to_string();
+    let org      = geo["org"].as_str().unwrap_or("").to_string();
+    let asn      = geo["asn"].as_str().unwrap_or("").to_string();
+    let isp      = geo["org"].as_str().unwrap_or("").to_string();
+    let latitude  = geo["latitude"].as_f64().unwrap_or(0.0);
+    let longitude = geo["longitude"].as_f64().unwrap_or(0.0);
+
+    // ── Reverse DNS ───────────────────────────────────────────────────────────
+    let hostname = {
+        let cmd = if cfg!(target_os = "windows") {
+            Command::new("powershell")
+                .args(["-NoProfile", "-Command",
+                    &format!("[System.Net.Dns]::GetHostEntry('{}').HostName", ip)])
+                .output()
+        } else {
+            Command::new("host").arg(&ip).output()
+        };
+        match cmd {
+            Ok(out) => {
+                let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                if s.is_empty() { ip.clone() } else { s.lines().next().unwrap_or(&ip).to_string() }
+            }
+            Err(_) => ip.clone(),
+        }
+    };
+
+    // ── AbuseIPDB (optional, only if key provided) ────────────────────────────
+    let (abuse_score, abuse_detail) = if !abuse_key.is_empty() {
+        let url = format!("https://api.abuseipdb.com/api/v2/check?ipAddress={}&maxAgeInDays=90", ip);
+        match client.get(&url)
+            .header("Key", &abuse_key)
+            .header("Accept", "application/json")
+            .send().await
+        {
+            Ok(resp) => {
+                match resp.json::<serde_json::Value>().await {
+                    Ok(v) => {
+                        let score   = v["data"]["abuseConfidenceScore"].as_u64().unwrap_or(0) as u32;
+                        let reports = v["data"]["totalReports"].as_u64().unwrap_or(0);
+                        let detail  = format!("{} reports in last 90 days", reports);
+                        (score, detail)
+                    }
+                    Err(_) => (0, "Parse error".into()),
+                }
+            }
+            Err(_) => (0, "AbuseIPDB unavailable".into()),
+        }
+    } else {
+        (0, "No AbuseIPDB key — set in Settings".into())
+    };
+
+    // ── Fast port probe on common ports ──────────────────────────────────────
+    let probe_ports: &[u16] = &[21, 22, 23, 25, 53, 80, 110, 143, 443, 445, 3306, 3389, 5900, 8080, 8443];
+    let mut open_ports = Vec::new();
+    for &port in probe_ports {
+        let addr = format!("{}:{}", ip, port);
+        if tokio::net::TcpStream::connect(&addr)
+            .await
+            .is_ok()
+        {
+            open_ports.push(port);
+        }
+    }
+
+    Ok(IpIntelResult {
+        ip, hostname, country, region, city,
+        org, asn, isp, latitude, longitude,
+        abuse_score, abuse_detail, open_ports,
+    })
+}
+
+// ─── Email OSINT ──────────────────────────────────────────────────────────────
+
+#[derive(Serialize)]
+pub struct BreachEntry {
+    pub name:         String,
+    pub domain:       String,
+    pub breach_date:  String,
+    pub description:  String,
+    pub data_classes: Vec<String>,
+    pub pwn_count:    u64,
+}
+
+#[derive(Serialize)]
+pub struct EmailOsintResult {
+    pub email:       String,
+    pub valid:       bool,
+    pub domain:      String,
+    pub mx_records:  Vec<String>,
+    pub gravatar_url: Option<String>,
+    pub breaches:    Vec<BreachEntry>,
+    pub breach_count: usize,
+    pub paste_count:  usize,
+}
+
+fn md5_hex(input: &str) -> String {
+    // RFC 1321 MD5 — minimal inline implementation for Gravatar
+    let bytes = input.as_bytes();
+    let mut msg = bytes.to_vec();
+    let bit_len = (bytes.len() as u64).wrapping_mul(8);
+    msg.push(0x80);
+    while msg.len() % 64 != 56 { msg.push(0); }
+    msg.extend_from_slice(&bit_len.to_le_bytes());
+
+    let mut h: [u32; 4] = [0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476];
+    let s: [u32; 64] = [
+        7,12,17,22,7,12,17,22,7,12,17,22,7,12,17,22,
+        5, 9,14,20,5, 9,14,20,5, 9,14,20,5, 9,14,20,
+        4,11,16,23,4,11,16,23,4,11,16,23,4,11,16,23,
+        6,10,15,21,6,10,15,21,6,10,15,21,6,10,15,21,
+    ];
+    let k: [u32; 64] = [
+        0xd76aa478,0xe8c7b756,0x242070db,0xc1bdceee,0xf57c0faf,0x4787c62a,0xa8304613,0xfd469501,
+        0x698098d8,0x8b44f7af,0xffff5bb1,0x895cd7be,0x6b901122,0xfd987193,0xa679438e,0x49b40821,
+        0xf61e2562,0xc040b340,0x265e5a51,0xe9b6c7aa,0xd62f105d,0x02441453,0xd8a1e681,0xe7d3fbc8,
+        0x21e1cde6,0xc33707d6,0xf4d50d87,0x455a14ed,0xa9e3e905,0xfcefa3f8,0x676f02d9,0x8d2a4c8a,
+        0xfffa3942,0x8771f681,0x6d9d6122,0xfde5380c,0xa4beea44,0x4bdecfa9,0xf6bb4b60,0xbebfbc70,
+        0x289b7ec6,0xeaa127fa,0xd4ef3085,0x04881d05,0xd9d4d039,0xe6db99e5,0x1fa27cf8,0xc4ac5665,
+        0xf4292244,0x432aff97,0xab9423a7,0xfc93a039,0x655b59c3,0x8f0ccc92,0xffeff47d,0x85845dd1,
+        0x6fa87e4f,0xfe2ce6e0,0xa3014314,0x4e0811a1,0xf7537e82,0xbd3af235,0x2ad7d2bb,0xeb86d391,
+    ];
+
+    for chunk in msg.chunks(64) {
+        let mut m = [0u32; 16];
+        for (i, w) in m.iter_mut().enumerate() {
+            *w = u32::from_le_bytes([chunk[i*4], chunk[i*4+1], chunk[i*4+2], chunk[i*4+3]]);
+        }
+        let (mut a, mut b, mut c, mut d) = (h[0], h[1], h[2], h[3]);
+        for i in 0u32..64 {
+            let (f, g) = match i {
+                0..=15  => (( b & c) | (!b & d), i),
+                16..=31 => (( d & b) | (!d & c), (5*i+1) % 16),
+                32..=47 => (b ^ c ^ d, (3*i+5) % 16),
+                _       => (c ^ (b | !d), (7*i) % 16),
+            };
+            let temp = d;
+            d = c; c = b;
+            b = b.wrapping_add(
+                a.wrapping_add(f).wrapping_add(k[i as usize]).wrapping_add(m[g as usize])
+                .rotate_left(s[i as usize])
+            );
+            a = temp;
+        }
+        h[0] = h[0].wrapping_add(a);
+        h[1] = h[1].wrapping_add(b);
+        h[2] = h[2].wrapping_add(c);
+        h[3] = h[3].wrapping_add(d);
+    }
+
+    let mut out = String::with_capacity(32);
+    for word in &h {
+        for byte in &word.to_le_bytes() {
+            out.push_str(&format!("{:02x}", byte));
+        }
+    }
+    out
+}
+
+#[tauri::command]
+pub async fn email_osint(email: String, hibp_key: String) -> Result<EmailOsintResult, String> {
+    // ── Basic validation ──────────────────────────────────────────────────────
+    let parts: Vec<&str> = email.split('@').collect();
+    let valid  = parts.len() == 2 && !parts[0].is_empty() && parts[1].contains('.');
+    let domain = if valid { parts[1].to_string() } else { String::new() };
+
+    if !valid {
+        return Ok(EmailOsintResult {
+            email, valid, domain,
+            mx_records: vec![], gravatar_url: None,
+            breaches: vec![], breach_count: 0, paste_count: 0,
+        });
+    }
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    // ── MX records ────────────────────────────────────────────────────────────
+    let mx_records = {
+        let cmd = if cfg!(target_os = "windows") {
+            Command::new("powershell")
+                .args(["-NoProfile", "-Command",
+                    &format!("Resolve-DnsName -Type MX {} | Select-Object -ExpandProperty NameExchange", domain)])
+                .output()
+        } else {
+            Command::new("dig").args(["+short", "MX", &domain]).output()
+        };
+        match cmd {
+            Ok(out) => String::from_utf8_lossy(&out.stdout)
+                .lines()
+                .filter(|l| !l.trim().is_empty())
+                .map(|l| l.trim().to_string())
+                .collect(),
+            Err(_) => vec![],
+        }
+    };
+
+    // ── Gravatar ──────────────────────────────────────────────────────────────
+    let hash         = md5_hex(&email.trim().to_lowercase());
+    let gravatar_url = {
+        let check_url = format!("https://www.gravatar.com/avatar/{}?d=404", hash);
+        match client.get(&check_url).send().await {
+            Ok(r) if r.status().is_success() =>
+                Some(format!("https://www.gravatar.com/avatar/{}?s=200", hash)),
+            _ => None,
+        }
+    };
+
+    // ── HIBP breach lookup ────────────────────────────────────────────────────
+    let (breaches, breach_count, paste_count) = if !hibp_key.is_empty() {
+        let url = format!("https://haveibeenpwned.com/api/v3/breachedaccount/{}?truncateResponse=false", email);
+        match client.get(&url)
+            .header("hibp-api-key", &hibp_key)
+            .header("User-Agent", "T-Assistant/1.0")
+            .send().await
+        {
+            Ok(resp) => {
+                let status = resp.status();
+                if status.as_u16() == 404 {
+                    // 404 = not found in any breach (good)
+                    (vec![], 0, 0)
+                } else if status.is_success() {
+                    match resp.json::<serde_json::Value>().await {
+                        Ok(arr) => {
+                            let entries: Vec<BreachEntry> = arr.as_array()
+                                .unwrap_or(&vec![])
+                                .iter()
+                                .map(|b| BreachEntry {
+                                    name:        b["Name"].as_str().unwrap_or("").to_string(),
+                                    domain:      b["Domain"].as_str().unwrap_or("").to_string(),
+                                    breach_date: b["BreachDate"].as_str().unwrap_or("").to_string(),
+                                    description: b["Description"].as_str().unwrap_or("").to_string(),
+                                    pwn_count:   b["PwnCount"].as_u64().unwrap_or(0),
+                                    data_classes: b["DataClasses"].as_array()
+                                        .unwrap_or(&vec![])
+                                        .iter()
+                                        .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                                        .collect(),
+                                })
+                                .collect();
+                            let count = entries.len();
+                            (entries, count, 0)
+                        }
+                        Err(_) => (vec![], 0, 0),
+                    }
+                } else {
+                    (vec![], 0, 0)
+                }
+            }
+            Err(_) => (vec![], 0, 0),
+        }
+    } else {
+        (vec![], 0, 0)
+    };
+
+    Ok(EmailOsintResult {
+        email, valid, domain, mx_records,
+        gravatar_url, breaches, breach_count, paste_count,
+    })
+}
+
+// ─── CVE Search ───────────────────────────────────────────────────────────────
+
+#[derive(Serialize)]
+pub struct CveEntry {
+    pub id:          String,
+    pub description: String,
+    pub severity:    String,
+    pub cvss_score:  f64,
+    pub published:   String,
+    pub references:  Vec<String>,
+}
+
+#[tauri::command]
+pub async fn cve_search(query: String) -> Result<Vec<CveEntry>, String> {
+    if query.trim().is_empty() {
+        return Ok(vec![]);
+    }
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let encoded = query.trim().replace(' ', "%20");
+    let url = format!(
+        "https://services.nvd.nist.gov/rest/json/cves/2.0?keywordSearch={}&resultsPerPage=15",
+        encoded
+    );
+
+    let resp: serde_json::Value = client
+        .get(&url)
+        .header("User-Agent", "T-Assistant/1.0")
+        .send().await.map_err(|e| e.to_string())?
+        .json().await.map_err(|e| e.to_string())?;
+
+    let items = resp["vulnerabilities"].as_array()
+        .ok_or("Unexpected NVD response format")?;
+
+    let results = items.iter().filter_map(|item| {
+        let cve = &item["cve"];
+        let id  = cve["id"].as_str()?.to_string();
+
+        let description = cve["descriptions"].as_array()?
+            .iter()
+            .find(|d| d["lang"].as_str() == Some("en"))
+            .and_then(|d| d["value"].as_str())
+            .unwrap_or("")
+            .to_string();
+
+        // CVSS v3.1 preferred, fall back to v2
+        let (cvss_score, severity) = {
+            let m31 = &cve["metrics"]["cvssMetricV31"];
+            let m30 = &cve["metrics"]["cvssMetricV30"];
+            let m2  = &cve["metrics"]["cvssMetricV2"];
+            let src = if m31.is_array() && !m31.as_array().unwrap().is_empty() { &m31[0] }
+                      else if m30.is_array() && !m30.as_array().unwrap().is_empty() { &m30[0] }
+                      else { &m2[0] };
+            let score    = src["cvssData"]["baseScore"].as_f64().unwrap_or(0.0);
+            let severity = src["cvssData"]["baseSeverity"]
+                .as_str()
+                .or_else(|| src["baseSeverity"].as_str())
+                .unwrap_or("UNKNOWN")
+                .to_string();
+            (score, severity)
+        };
+
+        let published = cve["published"].as_str().unwrap_or("").to_string();
+
+        let references: Vec<String> = cve["references"].as_array()
+            .unwrap_or(&vec![])
+            .iter()
+            .filter_map(|r| r["url"].as_str().map(|s| s.to_string()))
+            .take(3)
+            .collect();
+
+        Some(CveEntry { id, description, severity, cvss_score, published, references })
+    }).collect();
+
+    Ok(results)
+}

@@ -264,3 +264,64 @@ function mockInvoke<T>(cmd: string, _args?: Record<string, unknown>): T {
   };
   return (mocks[cmd] ?? null) as T;
 }
+
+// ─── IP Intel ─────────────────────────────────────────────────────────────────
+
+export interface IpIntelResult {
+  ip:           string;
+  hostname:     string;
+  country:      string;
+  region:       string;
+  city:         string;
+  org:          string;
+  asn:          string;
+  isp:          string;
+  latitude:     number;
+  longitude:    number;
+  abuse_score:  number;
+  abuse_detail: string;
+  open_ports:   number[];
+}
+
+export const ipIntel = (ip: string, abuse_key: string) =>
+  invoke<IpIntelResult>("ip_intel", { ip, abuse_key });
+
+// ─── Email OSINT ──────────────────────────────────────────────────────────────
+
+export interface BreachEntry {
+  name:         string;
+  domain:       string;
+  breach_date:  string;
+  description:  string;
+  data_classes: string[];
+  pwn_count:    number;
+}
+
+export interface EmailOsintResult {
+  email:        string;
+  valid:        boolean;
+  domain:       string;
+  mx_records:   string[];
+  gravatar_url: string | null;
+  breaches:     BreachEntry[];
+  breach_count: number;
+  paste_count:  number;
+}
+
+export const emailOsint = (email: string, hibp_key: string) =>
+  invoke<EmailOsintResult>("email_osint", { email, hibp_key });
+
+// ─── CVE Search ───────────────────────────────────────────────────────────────
+
+export interface CveEntry {
+  id:          string;
+  description: string;
+  severity:    string;
+  cvss_score:  number;
+  published:   string;
+  references:  string[];
+}
+
+export const cveSearch = (query: string) =>
+  invoke<CveEntry[]>("cve_search", { query });
+

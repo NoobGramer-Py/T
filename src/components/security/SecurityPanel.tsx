@@ -2,14 +2,14 @@ import { useState } from "react";
 import {
   nmapScan, checkIpReputationV2, getOpenPorts, analyzeProcesses,
   checkDnsLeak, getVpnStatus, getFirewallRules, checkPasswordStrength,
-  checkUrlSafety, getSecurityLog,
+  checkUrlSafety, getSecurityLog, ipIntel, emailOsint, cveSearch,
 } from "../../lib/tauri";
-import type { FirewallRule, PasswordStrength, SecurityEvent } from "../../lib/tauri";
+import type { FirewallRule, PasswordStrength, SecurityEvent, IpIntelResult, EmailOsintResult, CveEntry } from "../../lib/tauri";
 import { useTStore } from "../../store";
 
 // ─── Shared ───────────────────────────────────────────────────────────────────
 
-type Tab = "scanner" | "iprep" | "ports" | "processes" | "dns" | "vpn" | "firewall" | "password" | "url" | "log";
+type Tab = "scanner" | "iprep" | "ports" | "processes" | "dns" | "vpn" | "firewall" | "password" | "url" | "log" | "ipintel" | "emailosint" | "cve";
 
 function SectionHeader({ title, icon }: { title: string; icon: string }) {
   return (
@@ -562,11 +562,272 @@ function LogTab() {
   );
 }
 
+
+// ─── IP Intel ─────────────────────────────────────────────────────────────────
+
+function IpIntelTab() {
+  const { profile } = useTStore();
+  const [ip, setIp]         = useState("");
+  const [result, setResult] = useState<IpIntelResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError]   = useState("");
+
+  const run = async () => {
+    if (!ip.trim()) return;
+    setLoading(true); setError(""); setResult(null);
+    try {
+      setResult(await ipIntel(ip.trim(), profile.abuseipdbKey));
+    } catch (e) { setError(e instanceof Error ? e.message : "Failed"); }
+    finally { setLoading(false); }
+  };
+
+  const scoreColor = (s: number) => s > 75 ? "#ff4400" : s > 25 ? "#ffb300" : "#00ff88";
+
+  return (
+    <div>
+      <SectionHeader title="IP INTELLIGENCE" icon="◉" />
+      <div style={{ fontSize: 9, color: "rgba(255,179,0,0.35)", marginBottom: 12 }}>
+        Geolocation · ASN · Reverse DNS · Abuse Score · Open Ports
+      </div>
+      <Field label="TARGET IP" value={ip} onChange={setIp} placeholder="1.1.1.1" />
+      <Btn label={loading ? "SCANNING···" : "RUN INTEL"} onClick={run} disabled={loading || !ip.trim()} />
+      {error && <div style={{ fontSize: 9, color: "#ff4400", marginTop: 10 }}>{error}</div>}
+      {result && (
+        <ResultBox>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 20px", marginBottom: 14 }}>
+            {[
+              ["IP",       result.ip],
+              ["HOSTNAME", result.hostname],
+              ["COUNTRY",  result.country],
+              ["REGION",   result.region],
+              ["CITY",     result.city],
+              ["ASN",      result.asn],
+              ["ORG",      result.org],
+              ["COORDS",   `${result.latitude.toFixed(4)}, ${result.longitude.toFixed(4)}`],
+            ].map(([k, v]) => (
+              <div key={k}>
+                <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.35)", marginBottom: 2 }}>{k}</div>
+                <div style={{ fontSize: 10, color: "rgba(255,230,102,0.85)", wordBreak: "break-all" }}>{v || "—"}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ borderTop: "1px solid rgba(255,179,0,0.08)", paddingTop: 12, marginBottom: 12 }}>
+            <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.35)", marginBottom: 6 }}>ABUSE SCORE</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ fontSize: 22, fontWeight: "bold", color: scoreColor(result.abuse_score), textShadow: `0 0 12px ${scoreColor(result.abuse_score)}` }}>
+                {result.abuse_score}%
+              </span>
+              <span style={{ fontSize: 9, color: "rgba(255,179,0,0.5)" }}>{result.abuse_detail}</span>
+            </div>
+          </div>
+
+          <div style={{ borderTop: "1px solid rgba(255,179,0,0.08)", paddingTop: 12 }}>
+            <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.35)", marginBottom: 6 }}>
+              OPEN PORTS ({result.open_ports.length})
+            </div>
+            {result.open_ports.length === 0
+              ? <div style={{ fontSize: 9, color: "#00ff88" }}>No common ports open</div>
+              : <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {result.open_ports.map((p) => (
+                    <span key={p} style={{ fontSize: 9, padding: "2px 8px", border: "1px solid rgba(255,68,0,0.4)", color: "#ff6e00", borderRadius: 2 }}>
+                      {p}
+                    </span>
+                  ))}
+                </div>
+            }
+          </div>
+        </ResultBox>
+      )}
+    </div>
+  );
+}
+
+// ─── Email OSINT ──────────────────────────────────────────────────────────────
+
+function EmailOsintTab() {
+  const { profile } = useTStore();
+  const [email, setEmail]   = useState("");
+  const [hibpKey, setHibpKey] = useState("");
+  const [result, setResult] = useState<EmailOsintResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError]   = useState("");
+
+  const run = async () => {
+    if (!email.trim()) return;
+    setLoading(true); setError(""); setResult(null);
+    try {
+      setResult(await emailOsint(email.trim(), hibpKey || profile.abuseipdbKey));
+    } catch (e) { setError(e instanceof Error ? e.message : "Failed"); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div>
+      <SectionHeader title="EMAIL OSINT" icon="✉" />
+      <div style={{ fontSize: 9, color: "rgba(255,179,0,0.35)", marginBottom: 12 }}>
+        Breach history · MX records · Gravatar profile · Domain intel
+      </div>
+      <Field label="EMAIL ADDRESS" value={email} onChange={setEmail} placeholder="target@example.com" />
+      <Field label="HIBP API KEY (optional)" value={hibpKey} onChange={setHibpKey} placeholder="Get free key at haveibeenpwned.com" />
+      <Btn label={loading ? "SCANNING···" : "RUN OSINT"} onClick={run} disabled={loading || !email.trim()} />
+      {error && <div style={{ fontSize: 9, color: "#ff4400", marginTop: 10 }}>{error}</div>}
+      {result && (
+        <ResultBox>
+          {/* Validity + Domain */}
+          <div style={{ display: "flex", gap: 16, marginBottom: 14, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.35)", marginBottom: 3 }}>STATUS</div>
+              <span style={{ fontSize: 10, color: result.valid ? "#00ff88" : "#ff4400" }}>
+                {result.valid ? "VALID FORMAT" : "INVALID FORMAT"}
+              </span>
+            </div>
+            <div>
+              <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.35)", marginBottom: 3 }}>DOMAIN</div>
+              <span style={{ fontSize: 10, color: "rgba(255,230,102,0.85)" }}>{result.domain || "—"}</span>
+            </div>
+            <div>
+              <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.35)", marginBottom: 3 }}>GRAVATAR</div>
+              <span style={{ fontSize: 10, color: result.gravatar_url ? "#00ff88" : "rgba(255,179,0,0.4)" }}>
+                {result.gravatar_url ? "PROFILE EXISTS" : "NOT FOUND"}
+              </span>
+            </div>
+          </div>
+
+          {/* Gravatar image */}
+          {result.gravatar_url && (
+            <div style={{ marginBottom: 14 }}>
+              <img src={result.gravatar_url} alt="gravatar" style={{ width: 60, height: 60, borderRadius: 4, border: "1px solid rgba(255,179,0,0.2)" }} />
+            </div>
+          )}
+
+          {/* MX Records */}
+          {result.mx_records.length > 0 && (
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.35)", marginBottom: 6 }}>MX RECORDS</div>
+              {result.mx_records.map((mx, i) => (
+                <div key={i} style={{ fontSize: 9, color: "rgba(255,179,0,0.65)", marginBottom: 2 }}>{mx}</div>
+              ))}
+            </div>
+          )}
+
+          {/* Breach summary */}
+          <div style={{ borderTop: "1px solid rgba(255,179,0,0.08)", paddingTop: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+              <span style={{ fontSize: 18, fontWeight: "bold", color: result.breach_count > 0 ? "#ff4400" : "#00ff88", textShadow: result.breach_count > 0 ? "0 0 12px #ff4400" : "0 0 8px #00ff88" }}>
+                {result.breach_count}
+              </span>
+              <span style={{ fontSize: 8, letterSpacing: 3, color: "rgba(255,179,0,0.5)" }}>
+                {result.breach_count === 0 ? "NO BREACHES FOUND" : "BREACHES DETECTED"}
+              </span>
+            </div>
+            {result.breaches.map((b) => (
+              <div key={b.name} style={{ marginBottom: 10, padding: "8px 10px", background: "rgba(255,68,0,0.04)", border: "1px solid rgba(255,68,0,0.15)", borderRadius: 3 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                  <span style={{ fontSize: 10, color: "#ff6e00", fontWeight: "bold" }}>{b.name}</span>
+                  <span style={{ fontSize: 8, color: "rgba(255,179,0,0.4)" }}>{b.breach_date}</span>
+                </div>
+                <div style={{ fontSize: 8, color: "rgba(255,179,0,0.5)", marginBottom: 4 }}>{b.domain}</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                  {b.data_classes.map((dc) => (
+                    <span key={dc} style={{ fontSize: 7, padding: "1px 6px", border: "1px solid rgba(255,68,0,0.25)", color: "#ff4400", borderRadius: 2 }}>{dc}</span>
+                  ))}
+                </div>
+                <div style={{ fontSize: 8, color: "rgba(255,179,0,0.35)", marginTop: 4 }}>
+                  {b.pwn_count.toLocaleString()} accounts compromised
+                </div>
+              </div>
+            ))}
+          </div>
+        </ResultBox>
+      )}
+    </div>
+  );
+}
+
+// ─── CVE Search ───────────────────────────────────────────────────────────────
+
+function CveTab() {
+  const [query, setQuery]   = useState("");
+  const [results, setResults] = useState<CveEntry[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError]   = useState("");
+
+  const run = async () => {
+    if (!query.trim()) return;
+    setLoading(true); setError(""); setResults([]);
+    try {
+      setResults(await cveSearch(query.trim()));
+    } catch (e) { setError(e instanceof Error ? e.message : "Failed"); }
+    finally { setLoading(false); }
+  };
+
+  const severityColor = (s: string) => {
+    switch (s.toUpperCase()) {
+      case "CRITICAL": return "#ff0000";
+      case "HIGH":     return "#ff4400";
+      case "MEDIUM":   return "#ffb300";
+      case "LOW":      return "#ffe566";
+      default:         return "rgba(255,179,0,0.4)";
+    }
+  };
+
+  return (
+    <div>
+      <SectionHeader title="CVE SEARCH" icon="⚠" />
+      <div style={{ fontSize: 9, color: "rgba(255,179,0,0.35)", marginBottom: 12 }}>
+        Search NIST National Vulnerability Database. Enter service name, software, or CVE ID.
+      </div>
+      <Field label="SEARCH QUERY" value={query} onChange={setQuery} placeholder="apache 2.4 / openssl / CVE-2024-..." />
+      <Btn label={loading ? "SEARCHING···" : "SEARCH NVD"} onClick={run} disabled={loading || !query.trim()} />
+      {error && <div style={{ fontSize: 9, color: "#ff4400", marginTop: 10 }}>{error}</div>}
+      {results.length > 0 && (
+        <div style={{ marginTop: 14 }}>
+          <div style={{ fontSize: 7, letterSpacing: 4, color: "rgba(255,179,0,0.35)", marginBottom: 10 }}>
+            {results.length} RESULTS
+          </div>
+          {results.map((cve) => (
+            <div key={cve.id} style={{ marginBottom: 10, padding: "10px 14px", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,179,0,0.08)", borderLeft: `3px solid ${severityColor(cve.severity)}`, borderRadius: "0 3px 3px 0" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                <span style={{ fontSize: 11, fontWeight: "bold", color: "#ffe566", letterSpacing: 1 }}>{cve.id}</span>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <span style={{ fontSize: 10, color: severityColor(cve.severity), fontWeight: "bold", textShadow: `0 0 8px ${severityColor(cve.severity)}` }}>
+                    {cve.cvss_score.toFixed(1)}
+                  </span>
+                  <span style={{ fontSize: 7, padding: "1px 7px", border: `1px solid ${severityColor(cve.severity)}`, color: severityColor(cve.severity), borderRadius: 2, letterSpacing: 2 }}>
+                    {cve.severity}
+                  </span>
+                </div>
+              </div>
+              <div style={{ fontSize: 9, color: "rgba(255,179,0,0.65)", lineHeight: 1.6, marginBottom: 6 }}>
+                {cve.description.slice(0, 300)}{cve.description.length > 300 ? "..." : ""}
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: 7, color: "rgba(255,179,0,0.3)", letterSpacing: 2 }}>
+                  {cve.published.slice(0, 10)}
+                </span>
+                {cve.references[0] && (
+                  <a href={cve.references[0]} target="_blank" rel="noreferrer" style={{ fontSize: 7, color: "rgba(255,179,0,0.4)", letterSpacing: 2 }}>
+                    REF ↗
+                  </a>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Panel ───────────────────────────────────────────────────────────────
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "scanner",   label: "NMAP"      },
   { id: "iprep",     label: "IP REP"    },
+  { id: "ipintel",   label: "IP INTEL"  },
+  { id: "emailosint",label: "EMAIL OSINT"},
+  { id: "cve",       label: "CVE SEARCH"},
   { id: "ports",     label: "PORTS"     },
   { id: "processes", label: "AUDIT"     },
   { id: "dns",       label: "DNS LEAK"  },
@@ -599,16 +860,19 @@ export function SecurityPanel() {
 
       {/* Tab content */}
       <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
-        {tab === "scanner"   && <ScannerTab />}
-        {tab === "iprep"     && <IpRepTab />}
-        {tab === "ports"     && <PortsTab />}
-        {tab === "processes" && <ProcessAuditTab />}
-        {tab === "dns"       && <DnsTab />}
-        {tab === "vpn"       && <VpnTab />}
-        {tab === "firewall"  && <FirewallTab />}
-        {tab === "password"  && <PasswordTab />}
-        {tab === "url"       && <UrlTab />}
-        {tab === "log"       && <LogTab />}
+        {tab === "scanner"    && <ScannerTab />}
+        {tab === "iprep"      && <IpRepTab />}
+        {tab === "ipintel"    && <IpIntelTab />}
+        {tab === "emailosint" && <EmailOsintTab />}
+        {tab === "cve"        && <CveTab />}
+        {tab === "ports"      && <PortsTab />}
+        {tab === "processes"  && <ProcessAuditTab />}
+        {tab === "dns"        && <DnsTab />}
+        {tab === "vpn"        && <VpnTab />}
+        {tab === "firewall"   && <FirewallTab />}
+        {tab === "password"   && <PasswordTab />}
+        {tab === "url"        && <UrlTab />}
+        {tab === "log"        && <LogTab />}
       </div>
     </div>
   );

@@ -34,6 +34,9 @@ pub fn run() {
             security::check_password_strength,
             security::check_url_safety,
             security::get_security_log,
+            security::ip_intel,
+            security::email_osint,
+            security::cve_search,
             // Network
             network::ping_host,
             network::traceroute,
