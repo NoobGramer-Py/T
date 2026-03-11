@@ -1,0 +1,133 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --gold:        #ffb300;
+  --gold-bright: #ffe566;
+  --gold-deep:   #ff6e00;
+  --gold-dim:    rgba(255, 179, 0, 0.15);
+  --gold-glow:   rgba(255, 179, 0, 0.35);
+  --bg:          #000409;
+  --panel-bg:    rgba(255, 179, 0, 0.03);
+  --panel-border: rgba(255, 179, 0, 0.12);
+  --text-primary: rgba(255, 179, 0, 0.92);
+  --text-muted:   rgba(255, 179, 0, 0.4);
+  --threat-low:   #00ff88;
+  --threat-mid:   #ffb300;
+  --threat-high:  #ff4400;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: 'Courier New', Courier, monospace;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--gold-dim); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--gold-glow); }
+
+/* ── Selection ── */
+::selection { background: rgba(255, 179, 0, 0.2); color: var(--gold-bright); }
+
+/* ── HUD panel base ── */
+.hud-panel {
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  position: relative;
+}
+
+.hud-panel::before,
+.hud-panel::after {
+  content: '';
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-color: var(--gold);
+  border-style: solid;
+  opacity: 0.6;
+}
+
+.hud-panel::before { top: -1px; left: -1px;  border-width: 1px 0 0 1px; }
+.hud-panel::after  { top: -1px; right: -1px; border-width: 1px 1px 0 0; }
+
+/* ── Glowing text ── */
+.glow-text {
+  text-shadow:
+    0 0 8px var(--gold),
+    0 0 20px rgba(255, 179, 0, 0.4);
+}
+
+.glow-text-dim {
+  text-shadow: 0 0 6px rgba(255, 179, 0, 0.3);
+}
+
+/* ── Animated scanline ── */
+@keyframes scanline-move {
+  0%   { transform: translateY(-100%); opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { transform: translateY(100vh); opacity: 0; }
+}
+
+.scanline-overlay::after {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(transparent, rgba(255,179,0,0.06), transparent);
+  animation: scanline-move 6s linear infinite;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ── Gold blink cursor ── */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+.cursor-blink::after {
+  content: '█';
+  animation: blink 1s step-end infinite;
+  color: var(--gold);
+  font-size: 0.75em;
+  margin-left: 2px;
+}
+
+/* ── Fade-in ── */
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+
+.fade-in-up {
+  animation: fade-in-up 0.35s ease forwards;
+}
+
+/* ── Pulse ring ── */
+@keyframes ring-pulse {
+  0%   { transform: scale(1);   opacity: 0.7; }
+  100% { transform: scale(1.8); opacity: 0;   }
+}
+
+.ring-pulse {
+  animation: ring-pulse 1.4s ease-out infinite;
+}
+
+/* ── Voice ping animation ── */
+@keyframes ping {
+  75%, 100% { transform: scale(2); opacity: 0; }
+}

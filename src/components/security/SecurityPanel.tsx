@@ -1,0 +1,615 @@
+import { useState } from "react";
+import {
+  nmapScan, checkIpReputationV2, getOpenPorts, analyzeProcesses,
+  checkDnsLeak, getVpnStatus, getFirewallRules, checkPasswordStrength,
+  checkUrlSafety, getSecurityLog,
+} from "../../lib/tauri";
+import type { FirewallRule, PasswordStrength, SecurityEvent } from "../../lib/tauri";
+import { useTStore } from "../../store";
+
+// ─── Shared ───────────────────────────────────────────────────────────────────
+
+type Tab = "scanner" | "iprep" | "ports" | "processes" | "dns" | "vpn" | "firewall" | "password" | "url" | "log";
+
+function SectionHeader({ title, icon }: { title: string; icon: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, paddingBottom: 8, borderBottom: "1px solid rgba(255,179,0,0.08)" }}>
+      <span style={{ fontSize: 14, color: "#ffb300", textShadow: "0 0 8px #ffb300" }}>{icon}</span>
+      <span style={{ fontSize: 9, letterSpacing: 4, color: "rgba(255,179,0,0.6)" }}>{title}</span>
+    </div>
+  );
+}
+
+function Btn({ label, onClick, disabled = false, danger = false }: {
+  label: string; onClick: () => void; disabled?: boolean; danger?: boolean;
+}) {
+  return (
+    <button onClick={onClick} disabled={disabled} style={{
+      padding: "5px 16px", fontSize: 8, letterSpacing: 2,
+      background: danger ? "rgba(255,68,0,0.07)" : "rgba(255,179,0,0.07)",
+      border: `1px solid ${danger ? "rgba(255,68,0,0.3)" : "rgba(255,179,0,0.25)"}`,
+      color: danger ? "#ff4400" : "#ffb300",
+      borderRadius: 3, cursor: disabled ? "not-allowed" : "pointer",
+      fontFamily: "inherit", opacity: disabled ? 0.4 : 1, transition: "all 0.2s",
+    }}>
+      {label}
+    </button>
+  );
+}
+
+function Field({ label, value, onChange, type = "text", placeholder = "" }: {
+  label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string;
+}) {
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.4)", marginBottom: 4 }}>{label}</div>
+      <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
+        style={{ width: "100%", background: "rgba(255,179,0,0.03)", border: "1px solid rgba(255,179,0,0.12)", borderRadius: 3, padding: "6px 10px", color: "rgba(255,230,102,0.9)", fontSize: 11, fontFamily: "inherit", outline: "none", caretColor: "#ffb300" }}
+        onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.4)"; }}
+        onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.12)"; }}
+      />
+    </div>
+  );
+}
+
+function StatusBadge({ value, labels }: { value: string; labels: Record<string, string> }) {
+  const colors: Record<string, string> = {
+    clean: "#00ff88", safe: "#00ff88", low: "#00ff88",
+    suspicious: "#ffb300", unknown: "#ffb300", medium: "#ffb300",
+    malicious: "#ff4400", critical: "#ff4400", high: "#ff4400",
+  };
+  const color = colors[value.toLowerCase()] ?? "rgba(255,179,0,0.5)";
+  return (
+    <span style={{ fontSize: 8, letterSpacing: 2, padding: "2px 8px", border: `1px solid ${color}`, color, borderRadius: 2, textShadow: `0 0 6px ${color}` }}>
+      {labels[value] ?? value.toUpperCase()}
+    </span>
+  );
+}
+
+function ResultBox({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,179,0,0.08)", borderRadius: 3, padding: "14px 16px", marginTop: 14 }}>
+      {children}
+    </div>
+  );
+}
+
+// ─── Nmap Scanner ─────────────────────────────────────────────────────────────
+
+function ScannerTab() {
+  const [target, setTarget] = useState("");
+  const [flags, setFlags]   = useState("-sV -T4");
+  const [result, setResult] = useState<{ host: string; ports: { port: number; state: string; service: string; version: string }[]; os_guess: string } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError]   = useState("");
+
+  const scan = async () => {
+    if (!target.trim()) return;
+    setLoading(true); setError(""); setResult(null);
+    try {
+      setResult(await nmapScan(target.trim(), flags.trim()));
+    } catch (e) { setError(e instanceof Error ? e.message : "Scan failed"); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div>
+      <SectionHeader title="NMAP PORT SCANNER" icon="⬡" />
+      <Field label="TARGET (IP or hostname)" value={target} onChange={setTarget} placeholder="192.168.1.1 or example.com" />
+      <Field label="FLAGS" value={flags} onChange={setFlags} placeholder="-sV -T4 -p 1-1000" />
+      <Btn label={loading ? "SCANNING···" : "RUN SCAN"} onClick={scan} disabled={loading || !target.trim()} />
+      {error && <div style={{ fontSize: 9, color: "#ff4400", marginTop: 10 }}>{error}</div>}
+      {result && (
+        <ResultBox>
+          <div style={{ fontSize: 8, letterSpacing: 3, color: "rgba(255,179,0,0.5)", marginBottom: 10 }}>HOST: {result.host}{result.os_guess && ` · OS: ${result.os_guess}`}</div>
+          {result.ports.length === 0
+            ? <div style={{ fontSize: 10, color: "rgba(255,179,0,0.4)" }}>No open ports found.</div>
+            : <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10 }}>
+                <thead>
+                  <tr style={{ color: "rgba(255,179,0,0.4)", fontSize: 8, letterSpacing: 2 }}>
+                    {["PORT", "STATE", "SERVICE", "VERSION"].map((h) => (
+                      <td key={h} style={{ padding: "4px 8px", borderBottom: "1px solid rgba(255,179,0,0.08)" }}>{h}</td>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.ports.map((p) => (
+                    <tr key={p.port} style={{ borderBottom: "1px solid rgba(255,179,0,0.04)" }}>
+                      <td style={{ padding: "5px 8px", color: "#ffe566" }}>{p.port}</td>
+                      <td style={{ padding: "5px 8px", color: "#00ff88" }}>{p.state}</td>
+                      <td style={{ padding: "5px 8px", color: "rgba(255,179,0,0.8)" }}>{p.service}</td>
+                      <td style={{ padding: "5px 8px", color: "rgba(255,179,0,0.5)", fontSize: 9 }}>{p.version}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+          }
+        </ResultBox>
+      )}
+    </div>
+  );
+}
+
+// ─── IP Reputation ────────────────────────────────────────────────────────────
+
+function IpRepTab() {
+  const { profile } = useTStore();
+  const [ip, setIp]       = useState("");
+  const [result, setResult] = useState<{ ip: string; reputation: string; detail: string } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError]   = useState("");
+
+  const check = async () => {
+    if (!ip.trim()) return;
+    setLoading(true); setError(""); setResult(null);
+    try {
+      // abuseipdb_key stored in profile notes or as a separate key
+      const key = profile.abuseipdbKey;
+      setResult(await checkIpReputationV2(ip.trim(), key));
+    } catch (e) { setError(e instanceof Error ? e.message : "Check failed"); }
+    finally { setLoading(false); }
+  };
+
+  const repColors: Record<string, string> = { clean: "#00ff88", suspicious: "#ffb300", malicious: "#ff4400", unknown: "rgba(255,179,0,0.4)" };
+
+  return (
+    <div>
+      <SectionHeader title="IP REPUTATION" icon="◎" />
+      <div style={{ fontSize: 9, color: "rgba(255,179,0,0.35)", marginBottom: 12, lineHeight: 1.6 }}>
+        Powered by AbuseIPDB. Add your key in Settings → Profile → ABUSEIPDB API KEY.
+      </div>
+      <Field label="IP ADDRESS" value={ip} onChange={setIp} placeholder="8.8.8.8" />
+      <Btn label={loading ? "CHECKING···" : "CHECK REPUTATION"} onClick={check} disabled={loading || !ip.trim()} />
+      {error && <div style={{ fontSize: 9, color: "#ff4400", marginTop: 10 }}>{error}</div>}
+      {result && (
+        <ResultBox>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+            <span style={{ fontSize: 13, color: repColors[result.reputation] ?? "#ffb300", textShadow: `0 0 8px ${repColors[result.reputation] ?? "#ffb300"}` }}>
+              {result.reputation.toUpperCase()}
+            </span>
+            <span style={{ fontSize: 9, color: "rgba(255,179,0,0.5)" }}>{result.ip}</span>
+          </div>
+          <div style={{ fontSize: 10, color: "rgba(255,179,0,0.7)" }}>{result.detail}</div>
+        </ResultBox>
+      )}
+    </div>
+  );
+}
+
+// ─── Port Scanner (quick, no nmap) ────────────────────────────────────────────
+
+function PortsTab() {
+  const [host, setHost]     = useState("");
+  const [result, setResult] = useState<{ port: number; service: string }[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError]   = useState("");
+
+  const scan = async () => {
+    if (!host.trim()) return;
+    setLoading(true); setError(""); setResult(null);
+    try { setResult(await getOpenPorts(host.trim())); }
+    catch (e) { setError(e instanceof Error ? e.message : "Scan failed"); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div>
+      <SectionHeader title="QUICK PORT SCAN" icon="⊹" />
+      <div style={{ fontSize: 9, color: "rgba(255,179,0,0.35)", marginBottom: 12 }}>Checks 17 common ports via TCP connect. No nmap required.</div>
+      <Field label="HOST" value={host} onChange={setHost} placeholder="192.168.1.1 or domain.com" />
+      <Btn label={loading ? "SCANNING···" : "SCAN PORTS"} onClick={scan} disabled={loading || !host.trim()} />
+      {error && <div style={{ fontSize: 9, color: "#ff4400", marginTop: 10 }}>{error}</div>}
+      {result !== null && (
+        <ResultBox>
+          {result.length === 0
+            ? <div style={{ fontSize: 10, color: "#00ff88" }}>All common ports closed or filtered.</div>
+            : result.map((p) => (
+              <div key={p.port} style={{ display: "flex", gap: 12, padding: "5px 0", borderBottom: "1px solid rgba(255,179,0,0.05)" }}>
+                <span style={{ color: "#ffe566", minWidth: 50, fontSize: 11 }}>{p.port}</span>
+                <span style={{ color: "#ff4400", fontSize: 10 }}>OPEN</span>
+                <span style={{ color: "rgba(255,179,0,0.7)", fontSize: 10 }}>{p.service}</span>
+              </div>
+            ))
+          }
+        </ResultBox>
+      )}
+    </div>
+  );
+}
+
+// ─── Process Audit ────────────────────────────────────────────────────────────
+
+function ProcessAuditTab() {
+  const [result, setResult] = useState<{ pid: number; name: string; suspicion: string; reason: string }[] | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const run = async () => {
+    setLoading(true);
+    try { setResult(await analyzeProcesses()); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div>
+      <SectionHeader title="PROCESS AUDIT" icon="⬡" />
+      <div style={{ fontSize: 9, color: "rgba(255,179,0,0.35)", marginBottom: 12 }}>
+        Detects known malicious tools and anomalous CPU usage patterns.
+      </div>
+      <Btn label={loading ? "SCANNING···" : "AUDIT PROCESSES"} onClick={run} disabled={loading} />
+      {result !== null && (
+        <ResultBox>
+          {result.length === 0
+            ? <div style={{ fontSize: 10, color: "#00ff88" }}>✓ No suspicious processes detected.</div>
+            : result.map((p) => (
+              <div key={p.pid} style={{ padding: "8px 0", borderBottom: "1px solid rgba(255,179,0,0.06)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+                  <StatusBadge value={p.suspicion} labels={{ critical: "CRITICAL", suspicious: "SUSPICIOUS" }} />
+                  <span style={{ color: "#ffe566", fontSize: 11 }}>{p.name}</span>
+                  <span style={{ color: "rgba(255,179,0,0.4)", fontSize: 9 }}>PID {p.pid}</span>
+                </div>
+                <div style={{ fontSize: 9, color: "rgba(255,179,0,0.6)" }}>{p.reason}</div>
+              </div>
+            ))
+          }
+        </ResultBox>
+      )}
+    </div>
+  );
+}
+
+// ─── DNS Leak ─────────────────────────────────────────────────────────────────
+
+function DnsTab() {
+  const [result, setResult] = useState<{ leaking: boolean; servers: string[] } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError]   = useState("");
+
+  const check = async () => {
+    setLoading(true); setError(""); setResult(null);
+    try { setResult(await checkDnsLeak()); }
+    catch (e) { setError(e instanceof Error ? e.message : "Check failed"); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div>
+      <SectionHeader title="DNS LEAK TEST" icon="◎" />
+      <div style={{ fontSize: 9, color: "rgba(255,179,0,0.35)", marginBottom: 12 }}>
+        Checks if your DNS requests are leaking outside your VPN tunnel.
+      </div>
+      <Btn label={loading ? "TESTING···" : "RUN LEAK TEST"} onClick={check} disabled={loading} />
+      {error && <div style={{ fontSize: 9, color: "#ff4400", marginTop: 10 }}>{error}</div>}
+      {result && (
+        <ResultBox>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+            <span style={{ fontSize: 13, color: result.leaking ? "#ff4400" : "#00ff88", textShadow: `0 0 8px ${result.leaking ? "#ff4400" : "#00ff88"}` }}>
+              {result.leaking ? "⚠ LEAK DETECTED" : "✓ NO LEAK"}
+            </span>
+          </div>
+          <div style={{ fontSize: 8, letterSpacing: 3, color: "rgba(255,179,0,0.4)", marginBottom: 8 }}>DNS SERVERS</div>
+          {result.servers.map((s) => (
+            <div key={s} style={{ fontSize: 10, color: "rgba(255,179,0,0.8)", padding: "3px 0" }}>{s}</div>
+          ))}
+        </ResultBox>
+      )}
+    </div>
+  );
+}
+
+// ─── VPN Status ───────────────────────────────────────────────────────────────
+
+function VpnTab() {
+  const [result, setResult] = useState<{ connected: boolean; provider: string; ip: string; location: string } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError]   = useState("");
+
+  const check = async () => {
+    setLoading(true); setError(""); setResult(null);
+    try { setResult(await getVpnStatus()); }
+    catch (e) { setError(e instanceof Error ? e.message : "Check failed"); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div>
+      <SectionHeader title="VPN STATUS" icon="⊞" />
+      <Btn label={loading ? "CHECKING···" : "CHECK VPN"} onClick={check} disabled={loading} />
+      {error && <div style={{ fontSize: 9, color: "#ff4400", marginTop: 10 }}>{error}</div>}
+      {result && (
+        <ResultBox>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+            <span style={{ fontSize: 13, color: result.connected ? "#00ff88" : "#ff4400", textShadow: `0 0 8px ${result.connected ? "#00ff88" : "#ff4400"}` }}>
+              {result.connected ? "● VPN ACTIVE" : "○ NOT CONNECTED"}
+            </span>
+          </div>
+          {[
+            { label: "PUBLIC IP",  value: result.ip },
+            { label: "LOCATION",   value: result.location },
+            { label: "PROVIDER",   value: result.provider || "Unknown" },
+          ].map(({ label, value }) => (
+            <div key={label} style={{ display: "flex", gap: 12, marginBottom: 8 }}>
+              <span style={{ fontSize: 8, letterSpacing: 3, color: "rgba(255,179,0,0.4)", minWidth: 80 }}>{label}</span>
+              <span style={{ fontSize: 10, color: "rgba(255,179,0,0.85)" }}>{value}</span>
+            </div>
+          ))}
+        </ResultBox>
+      )}
+    </div>
+  );
+}
+
+// ─── Firewall Rules ───────────────────────────────────────────────────────────
+
+function FirewallTab() {
+  const [rules, setRules]   = useState<FirewallRule[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError]   = useState("");
+  const [filter, setFilter] = useState("");
+
+  const load = async () => {
+    setLoading(true); setError("");
+    try { setRules(await getFirewallRules()); }
+    catch (e) { setError(e instanceof Error ? e.message : "Failed to load rules"); }
+    finally { setLoading(false); }
+  };
+
+  const filtered = rules?.filter((r) =>
+    !filter || r.name.toLowerCase().includes(filter.toLowerCase())
+  ) ?? [];
+
+  return (
+    <div>
+      <SectionHeader title="FIREWALL RULES" icon="⬡" />
+      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+        <Btn label={loading ? "LOADING···" : "LOAD RULES"} onClick={load} disabled={loading} />
+        {rules && (
+          <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="filter by name..."
+            style={{ flex: 1, background: "rgba(255,179,0,0.03)", border: "1px solid rgba(255,179,0,0.12)", borderRadius: 3, padding: "5px 10px", color: "rgba(255,230,102,0.9)", fontSize: 10, fontFamily: "inherit", outline: "none" }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.4)"; }}
+            onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.12)"; }}
+          />
+        )}
+      </div>
+      {error && <div style={{ fontSize: 9, color: "#ff4400" }}>{error}</div>}
+      {rules && (
+        <div style={{ maxHeight: 360, overflowY: "auto", border: "1px solid rgba(255,179,0,0.08)", borderRadius: 3 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px 60px", gap: 8, padding: "6px 12px", borderBottom: "1px solid rgba(255,179,0,0.1)", fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.4)" }}>
+            <span>NAME</span><span>DIRECTION</span><span>ACTION</span><span>STATUS</span>
+          </div>
+          {filtered.map((r, i) => (
+            <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px 60px", gap: 8, padding: "5px 12px", borderBottom: "1px solid rgba(255,179,0,0.04)", fontSize: 10, alignItems: "center" }}>
+              <span style={{ color: "rgba(255,179,0,0.85)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</span>
+              <span style={{ color: "rgba(255,179,0,0.5)", fontSize: 9 }}>{r.direction}</span>
+              <span style={{ color: r.action.toLowerCase().includes("allow") ? "#00ff88" : "#ff4400", fontSize: 9 }}>{r.action}</span>
+              <span style={{ color: r.enabled ? "#00ff88" : "rgba(255,179,0,0.3)", fontSize: 8 }}>{r.enabled ? "ON" : "OFF"}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Password Strength ────────────────────────────────────────────────────────
+
+function PasswordTab() {
+  const [password, setPassword] = useState("");
+  const [result, setResult]     = useState<PasswordStrength | null>(null);
+  const [loading, setLoading]   = useState(false);
+  const [show, setShow]         = useState(false);
+
+  const check = async () => {
+    if (!password) return;
+    setLoading(true);
+    try { setResult(await checkPasswordStrength(password)); }
+    finally { setLoading(false); }
+  };
+
+  const scoreColors = ["#ff4400", "#ff6600", "#ffb300", "#ffe566", "#00ff88"];
+  const color = result ? scoreColors[result.score] ?? "#ffb300" : "#ffb300";
+
+  return (
+    <div>
+      <SectionHeader title="PASSWORD STRENGTH ANALYSER" icon="◎" />
+      <div style={{ fontSize: 9, color: "rgba(255,179,0,0.35)", marginBottom: 12 }}>Password is checked locally — never sent anywhere.</div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.4)", marginBottom: 4 }}>PASSWORD</div>
+          <input type={show ? "text" : "password"} value={password}
+            onChange={(e) => { setPassword(e.target.value); setResult(null); }}
+            onKeyDown={(e) => e.key === "Enter" && check()}
+            placeholder="Enter password to analyse..."
+            style={{ width: "100%", background: "rgba(255,179,0,0.03)", border: "1px solid rgba(255,179,0,0.12)", borderRadius: 3, padding: "6px 10px", color: "rgba(255,230,102,0.9)", fontSize: 11, fontFamily: "inherit", outline: "none", caretColor: "#ffb300" }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.4)"; }}
+            onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.12)"; }}
+          />
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <div style={{ height: 16 }} />
+          <button onClick={() => setShow(!show)} style={{ padding: "6px 10px", fontSize: 9, background: "transparent", border: "1px solid rgba(255,179,0,0.15)", color: "rgba(255,179,0,0.5)", cursor: "pointer", borderRadius: 3, fontFamily: "inherit" }}>
+            {show ? "HIDE" : "SHOW"}
+          </button>
+        </div>
+      </div>
+      <Btn label={loading ? "ANALYSING···" : "ANALYSE"} onClick={check} disabled={loading || !password} />
+
+      {result && (
+        <ResultBox>
+          {/* Score bar */}
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+              <span style={{ fontSize: 14, color, textShadow: `0 0 8px ${color}` }}>{result.label}</span>
+              <span style={{ fontSize: 10, color: "rgba(255,179,0,0.5)" }}>Entropy: {result.entropy.toFixed(1)} bits</span>
+            </div>
+            <div style={{ height: 4, background: "rgba(255,179,0,0.08)", borderRadius: 2 }}>
+              <div style={{ height: "100%", width: `${(result.score / 4) * 100}%`, background: color, borderRadius: 2, boxShadow: `0 0 8px ${color}`, transition: "width 0.5s ease" }} />
+            </div>
+          </div>
+          {result.feedback.length > 0 && (
+            <div>
+              <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.4)", marginBottom: 8 }}>RECOMMENDATIONS</div>
+              {result.feedback.map((f, i) => (
+                <div key={i} style={{ display: "flex", gap: 8, fontSize: 10, color: "rgba(255,179,0,0.75)", marginBottom: 5 }}>
+                  <span style={{ color: "#ffb300" }}>›</span>{f}
+                </div>
+              ))}
+            </div>
+          )}
+        </ResultBox>
+      )}
+    </div>
+  );
+}
+
+// ─── URL Safety ───────────────────────────────────────────────────────────────
+
+function UrlTab() {
+  const { profile } = useTStore();
+  const [url, setUrl]       = useState("");
+  const [result, setResult] = useState<{ url: string; safe: boolean; detail: string } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError]   = useState("");
+
+  const check = async () => {
+    if (!url.trim()) return;
+    setLoading(true); setError(""); setResult(null);
+    try {
+      const key = profile.virusTotalKey;
+      setResult(await checkUrlSafety(url.trim(), key));
+    } catch (e) { setError(e instanceof Error ? e.message : "Check failed"); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div>
+      <SectionHeader title="URL SAFETY CHECK" icon="⊹" />
+      <div style={{ fontSize: 9, color: "rgba(255,179,0,0.35)", marginBottom: 12 }}>
+        Powered by VirusTotal. Add your key in Settings → Profile → VIRUSTOTAL API KEY.
+      </div>
+      <Field label="URL" value={url} onChange={setUrl} placeholder="https://example.com" />
+      <Btn label={loading ? "CHECKING···" : "CHECK URL"} onClick={check} disabled={loading || !url.trim()} />
+      {error && <div style={{ fontSize: 9, color: "#ff4400", marginTop: 10 }}>{error}</div>}
+      {result && (
+        <ResultBox>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+            <span style={{ fontSize: 13, color: result.safe ? "#00ff88" : "#ff4400", textShadow: `0 0 8px ${result.safe ? "#00ff88" : "#ff4400"}` }}>
+              {result.safe ? "✓ SAFE" : "⚠ THREAT DETECTED"}
+            </span>
+          </div>
+          <div style={{ fontSize: 10, color: "rgba(255,179,0,0.7)" }}>{result.detail}</div>
+        </ResultBox>
+      )}
+    </div>
+  );
+}
+
+// ─── Security Log ─────────────────────────────────────────────────────────────
+
+function LogTab() {
+  const [events, setEvents] = useState<SecurityEvent[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError]   = useState("");
+  const [filter, setFilter] = useState("");
+
+  const load = async () => {
+    setLoading(true); setError("");
+    try { setEvents(await getSecurityLog()); }
+    catch (e) { setError(e instanceof Error ? e.message : "Failed"); }
+    finally { setLoading(false); }
+  };
+
+  const filtered = events?.filter((e) =>
+    !filter || e.message.toLowerCase().includes(filter.toLowerCase()) || e.source.toLowerCase().includes(filter.toLowerCase())
+  ) ?? [];
+
+  const levelColor: Record<string, string> = {
+    error: "#ff4400", warning: "#ffb300", info: "rgba(255,179,0,0.5)",
+    Error: "#ff4400", Warning: "#ffb300", Information: "rgba(255,179,0,0.5)",
+  };
+
+  return (
+    <div>
+      <SectionHeader title="SECURITY EVENT LOG" icon="◎" />
+      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+        <Btn label={loading ? "LOADING···" : "LOAD EVENTS"} onClick={load} disabled={loading} />
+        {events && (
+          <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="filter events..."
+            style={{ flex: 1, background: "rgba(255,179,0,0.03)", border: "1px solid rgba(255,179,0,0.12)", borderRadius: 3, padding: "5px 10px", color: "rgba(255,230,102,0.9)", fontSize: 10, fontFamily: "inherit", outline: "none" }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.4)"; }}
+            onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.12)"; }}
+          />
+        )}
+      </div>
+      {error && <div style={{ fontSize: 9, color: "#ff4400" }}>{error}</div>}
+      {events && (
+        <div style={{ maxHeight: 380, overflowY: "auto", border: "1px solid rgba(255,179,0,0.08)", borderRadius: 3 }}>
+          {filtered.length === 0
+            ? <div style={{ padding: 14, fontSize: 10, color: "rgba(255,179,0,0.4)" }}>No events found.</div>
+            : filtered.map((ev, i) => (
+              <div key={i} style={{ padding: "8px 12px", borderBottom: "1px solid rgba(255,179,0,0.04)" }}>
+                <div style={{ display: "flex", gap: 10, marginBottom: 3 }}>
+                  <span style={{ fontSize: 8, color: levelColor[ev.level] ?? "rgba(255,179,0,0.5)", letterSpacing: 1 }}>{ev.level.toUpperCase()}</span>
+                  <span style={{ fontSize: 8, color: "rgba(255,179,0,0.35)" }}>{ev.source}</span>
+                  {ev.time && <span style={{ fontSize: 8, color: "rgba(255,179,0,0.25)", marginLeft: "auto" }}>{ev.time}</span>}
+                </div>
+                <div style={{ fontSize: 10, color: "rgba(255,179,0,0.7)", lineHeight: 1.5 }}>{ev.message}</div>
+              </div>
+            ))
+          }
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main Panel ───────────────────────────────────────────────────────────────
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: "scanner",   label: "NMAP"      },
+  { id: "iprep",     label: "IP REP"    },
+  { id: "ports",     label: "PORTS"     },
+  { id: "processes", label: "AUDIT"     },
+  { id: "dns",       label: "DNS LEAK"  },
+  { id: "vpn",       label: "VPN"       },
+  { id: "firewall",  label: "FIREWALL"  },
+  { id: "password",  label: "PASSWORD"  },
+  { id: "url",       label: "URL SCAN"  },
+  { id: "log",       label: "EVENT LOG" },
+];
+
+export function SecurityPanel() {
+  const [tab, setTab] = useState<Tab>("scanner");
+
+  return (
+    <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      {/* Tab bar */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 2, padding: "12px 16px 0", borderBottom: "1px solid rgba(255,179,0,0.08)", flexShrink: 0 }}>
+        {TABS.map(({ id, label }) => (
+          <button key={id} onClick={() => setTab(id)} style={{
+            padding: "6px 10px", fontSize: 7, letterSpacing: 3,
+            background: tab === id ? "rgba(255,179,0,0.08)" : "transparent",
+            border: "none", borderBottom: `2px solid ${tab === id ? "#ffb300" : "transparent"}`,
+            color: tab === id ? "#ffb300" : "rgba(255,179,0,0.35)",
+            cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s",
+          }}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab content */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
+        {tab === "scanner"   && <ScannerTab />}
+        {tab === "iprep"     && <IpRepTab />}
+        {tab === "ports"     && <PortsTab />}
+        {tab === "processes" && <ProcessAuditTab />}
+        {tab === "dns"       && <DnsTab />}
+        {tab === "vpn"       && <VpnTab />}
+        {tab === "firewall"  && <FirewallTab />}
+        {tab === "password"  && <PasswordTab />}
+        {tab === "url"       && <UrlTab />}
+        {tab === "log"       && <LogTab />}
+      </div>
+    </div>
+  );
+}

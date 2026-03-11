@@ -1,0 +1,33 @@
+[package]
+name    = "t-assistant"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "t_assistant_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "t-assistant"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2.0", features = [] }
+
+[dependencies]
+tauri       = { version = "2.0", features = ["devtools"] }
+serde       = { version = "1.0", features = ["derive"] }
+serde_json  = "1.0"
+tokio       = { version = "1.0", features = ["full"] }
+sysinfo     = "0.31"
+reqwest     = { version = "0.12", features = ["json"] }
+rusqlite    = { version = "0.31", features = ["bundled"] }
+dirs        = "5.0"
+chrono      = { version = "0.4", features = ["serde"] }
+
+[profile.release]
+opt-level = 3
+lto       = true
+codegen-units = 1
+panic     = "abort"
+strip     = true
