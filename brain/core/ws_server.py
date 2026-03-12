@@ -16,13 +16,24 @@ class Client:
     id:        str
     websocket: WebSocket
     _lock:     asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)
+    _closed:   bool         = field(default=False, repr=False)
 
     async def send(self, payload: dict) -> None:
+        if self._closed:
+            return
         async with self._lock:
+            if self._closed:
+                return
             try:
                 await self.websocket.send_text(json.dumps(payload))
             except Exception as e:
-                log.warning(f"send failed for {self.id}: {e}")
+                # Only log if it's not an expected post-close race
+                msg = str(e)
+                if "websocket.close" not in msg and "already completed" not in msg:
+                    log.warning(f"send failed for {self.id}: {e}")
+
+    def close(self) -> None:
+        self._closed = True
 
 
 _clients: dict[str, Client] = {}
@@ -44,5 +55,6 @@ async def websocket_endpoint(ws: WebSocket) -> None:
     except WebSocketDisconnect:
         log.info(f"client disconnected: {client.id}")
     finally:
+        client.close()
         _clients.pop(client.id, None)
         engine.on_disconnect(client.id)
