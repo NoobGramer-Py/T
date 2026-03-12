@@ -27,13 +27,11 @@ class BrainBridge {
   connect(): void {
     if (this.ws || this.destroyed) return;
     this._setStatus("connecting");
-    console.log(`[bridge] connecting to ${BRAIN_URL}`);
 
     const ws = new WebSocket(BRAIN_URL);
     this.ws  = ws;
 
     ws.onopen = () => {
-      console.log("[bridge] connected");
       this.reconnectDelay = RECONNECT_DELAY;
       this._setStatus("online");
     };
@@ -47,8 +45,7 @@ class BrainBridge {
       }
     };
 
-    ws.onclose = (event: CloseEvent) => {
-      console.log(`[bridge] closed code=${event.code} reason=${event.reason}`);
+    ws.onclose = () => {
       this.ws = null;
       if (!this.destroyed) {
         this._setStatus("offline");
@@ -56,8 +53,8 @@ class BrainBridge {
       }
     };
 
-    ws.onerror = (event: Event) => {
-      console.error("[bridge] error", event);
+    ws.onerror = () => {
+      // onclose fires after onerror — handle state there
     };
   }
 
