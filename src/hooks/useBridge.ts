@@ -238,3 +238,150 @@ export function useAgent() {
 
   return { dispatch, confirm };
 }
+
+// ─── Proactive Alerts ─────────────────────────────────────────────────────────
+// Surfaces alerts pushed by the proactive engine (system health, reminders).
+
+export type ProactiveAlert = {
+  severity: "info" | "warn" | "critical";
+  message:  string;
+  ts:       number;
+};
+
+export function useProactiveAlerts() {
+  const [alerts, setAlerts] = useState<ProactiveAlert[]>([]);
+
+  useEffect(() => {
+    const unsub = bridge.onMessage((msg: BrainMessage) => {
+      if (msg.type !== "proactive_alert") return;
+      setAlerts((prev) => [
+        { severity: msg.severity as ProactiveAlert["severity"], message: msg.message as string, ts: Date.now() },
+        ...prev.slice(0, 49),   // keep last 50
+      ]);
+    });
+    return unsub;
+  }, []);
+
+  const dismiss = useCallback((ts: number) => {
+    setAlerts((prev) => prev.filter((a) => a.ts !== ts));
+  }, []);
+
+  return { alerts, dismiss };
+}
+
+// ─── Local Access ─────────────────────────────────────────────────────────────
+// Manages the local credential extraction session lifecycle.
+
+export type LocalAccessProgress = {
+  source: string;
+  status: "running" | "done" | "fallback" | "failed";
+  error?: string;
+};
+
+export type LocalAccessState =
+  | "idle"
+  | "checking"
+  | "awaiting_confirm"
+  | "elevating"
+  | "running"
+  | "done"
+  | "error";
+
+export function useLocalAccess() {
+  const [state,        setState]        = useState<LocalAccessState>("idle");
+  const [readyPayload, setReadyPayload] = useState<BrainMessage | null>(null);
+  const [progress,     setProgress]     = useState<LocalAccessProgress[]>([]);
+  const [fullOutput,   setFullOutput]   = useState<string>("");
+  const [hashes,       setHashes]       = useState<string[]>([]);
+  const [summary,      setSummary]      = useState<string>("");
+  const [error,        setError]        = useState<string>("");
+  const [memoryResult, setMemoryResult] = useState<object | null>(null);
+
+  useEffect(() => {
+    const unsub = bridge.onMessage((msg: BrainMessage) => {
+      switch (msg.type) {
+        case "local_access_ready":
+          setState("awaiting_confirm");
+          setReadyPayload(msg);
+          setProgress([]);
+          break;
+        case "local_access_progress":
+          setProgress((prev) => {
+            const idx = prev.findIndex((p) => p.source === msg.source);
+            const entry: LocalAccessProgress = {
+              source: msg.source as string,
+              status: msg.status as LocalAccessProgress["status"],
+              error:  msg.error as string | undefined,
+            };
+            if (idx >= 0) {
+              const next = [...prev];
+              next[idx] = entry;
+              return next;
+            }
+            return [...prev, entry];
+          });
+          if (msg.status === "waiting_for_helper") setState("elevating");
+          if (msg.status === "running")             setState("running");
+          break;
+        case "local_access_summary":
+          setSummary(msg.chat_summary as string);
+          setState("done");
+          break;
+        case "local_access_full":
+          setFullOutput(msg.data as string);
+          break;
+        case "local_access_hashes":
+          setHashes(msg.hashes as string[]);
+          break;
+        case "local_access_ended":
+          setState("idle");
+          setProgress([]);
+          break;
+        case "local_access_cancelled":
+          setState("idle");
+          break;
+        case "local_access_error":
+          setError(msg.error as string);
+          setState("error");
+          break;
+        case "memory_inspect_result":
+          setMemoryResult(msg.result as object ?? msg.results as object);
+          break;
+      }
+    });
+    return unsub;
+  }, []);
+
+  const startSession = useCallback(() => {
+    setState("checking");
+    setError("");
+    setFullOutput("");
+    setHashes([]);
+    setSummary("");
+    setProgress([]);
+    bridge.send({ type: "local_access_start", id: crypto.randomUUID() });
+  }, []);
+
+  const confirm = useCallback(() => {
+    bridge.send({ type: "local_access_confirm", confirmed: true });
+  }, []);
+
+  const cancel = useCallback(() => {
+    bridge.send({ type: "local_access_confirm", confirmed: false });
+    setState("idle");
+  }, []);
+
+  const endSession = useCallback(() => {
+    bridge.send({ type: "local_access_end" });
+  }, []);
+
+  const inspectMemory = useCallback((pid: number | null, patterns?: string[]) => {
+    bridge.send({ type: "memory_inspect", id: crypto.randomUUID(), pid, patterns });
+  }, []);
+
+  return {
+    state, readyPayload, progress, fullOutput, hashes,
+    summary, error, memoryResult,
+    startSession, confirm, cancel, endSession, inspectMemory,
+  };
+}

@@ -39,6 +39,12 @@ class Client:
 _clients: dict[str, Client] = {}
 
 
+async def broadcast(payload: dict) -> None:
+    """Send a message to all currently connected clients."""
+    for client in list(_clients.values()):
+        await client.send(payload)
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket) -> None:
     await ws.accept()

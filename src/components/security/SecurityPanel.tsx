@@ -6,10 +6,11 @@ import {
 } from "../../lib/tauri";
 import type { FirewallRule, PasswordStrength, SecurityEvent, IpIntelResult, EmailOsintResult, CveEntry, FullScanResult } from "../../lib/tauri";
 import { useTStore } from "../../store";
+import { useLocalAccess, type LocalAccessProgress } from "../../hooks/useBridge";
 
 // ─── Shared ───────────────────────────────────────────────────────────────────
 
-type Tab = "scanner" | "iprep" | "ports" | "processes" | "dns" | "vpn" | "firewall" | "password" | "url" | "log" | "ipintel" | "emailosint" | "cve" | "fullscan";
+type Tab = "scanner" | "iprep" | "ports" | "processes" | "dns" | "vpn" | "firewall" | "password" | "url" | "log" | "ipintel" | "emailosint" | "cve" | "fullscan" | "localaccess";
 
 function SectionHeader({ title, icon }: { title: string; icon: string }) {
   return (
@@ -939,6 +940,173 @@ function FullPortScanTab() {
   );
 }
 
+// ─── Local Access ─────────────────────────────────────────────────────────────
+
+function LocalAccessTab() {
+  const {
+    state, readyPayload, progress, fullOutput, hashes,
+    summary, error, memoryResult,
+    startSession, confirm, cancel, endSession, inspectMemory,
+  } = (window as any).__useLocalAccess?.() ?? _useLocalAccessFallback();
+
+  const [pidInput, setPidInput] = useState("");
+  const [patInput, setPatInput] = useState("");
+
+  const isIdle    = state === "idle"    || state === "done" || state === "error";
+  const statusColors: Record<string, string> = {
+    idle:             "rgba(255,179,0,0.4)",
+    checking:         "#ffb300",
+    awaiting_confirm: "#ffb300",
+    elevating:        "#ff9900",
+    running:          "#00ff88",
+    done:             "#00ff88",
+    error:            "#ff4400",
+  };
+  const statusColor = statusColors[state] ?? "rgba(255,179,0,0.4)";
+
+  return (
+    <div>
+      <SectionHeader title="LOCAL ACCESS" icon="⚡" />
+
+      {/* Status row + kill switch */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ width: 8, height: 8, borderRadius: "50%", background: statusColor, boxShadow: `0 0 6px ${statusColor}` }} />
+          <span style={{ fontSize: 9, letterSpacing: 3, color: statusColor }}>{state.toUpperCase().replace("_", " ")}</span>
+        </div>
+        {!isIdle && (
+          <Btn label="■ END SESSION" onClick={endSession} danger />
+        )}
+      </div>
+
+      {/* Error */}
+      {error && (
+        <div style={{ background: "rgba(255,68,0,0.08)", border: "1px solid rgba(255,68,0,0.2)", borderRadius: 3, padding: "10px 14px", marginBottom: 14, fontSize: 10, color: "#ff6644" }}>
+          {error}
+        </div>
+      )}
+
+      {/* Start button */}
+      {state === "idle" && (
+        <div style={{ marginBottom: 16 }}>
+          <Btn label="EXTRACT ALL CREDENTIALS" onClick={startSession} />
+          <div style={{ marginTop: 8, fontSize: 9, color: "rgba(255,179,0,0.35)", lineHeight: 1.6 }}>
+            Extracts from: LSASS · SAM · Credential Manager · Browsers · WiFi · Env Vars · Scheduled Tasks · Registry
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation prompt */}
+      {state === "awaiting_confirm" && readyPayload && (
+        <div style={{ background: "rgba(255,179,0,0.04)", border: "1px solid rgba(255,179,0,0.2)", borderRadius: 4, padding: "14px 16px", marginBottom: 16 }}>
+          <div style={{ fontSize: 9, letterSpacing: 2, color: "#ffb300", marginBottom: 10 }}>CONFIRMATION REQUIRED</div>
+          <pre style={{ fontSize: 9, color: "rgba(255,230,102,0.7)", lineHeight: 1.7, whiteSpace: "pre-wrap", margin: "0 0 14px" }}>
+            {(readyPayload as any).risk_summary}
+          </pre>
+          <div style={{ display: "flex", gap: 10 }}>
+            <Btn label="YES — PROCEED" onClick={confirm} />
+            <Btn label="CANCEL"        onClick={cancel}  danger />
+          </div>
+        </div>
+      )}
+
+      {/* Progress */}
+      {progress.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 8, letterSpacing: 3, color: "rgba(255,179,0,0.4)", marginBottom: 8 }}>PROGRESS</div>
+          {progress.map((p: LocalAccessProgress) => (
+            <div key={p.source} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+              <span style={{
+                fontSize: 8, letterSpacing: 2, padding: "1px 6px",
+                border: `1px solid ${p.status === "done" ? "#00ff88" : p.status === "failed" ? "#ff4400" : "#ffb300"}`,
+                color:         p.status === "done" ? "#00ff88" : p.status === "failed" ? "#ff4400" : "#ffb300",
+                borderRadius: 2, minWidth: 50, textAlign: "center",
+              }}>
+                {p.status.toUpperCase()}
+              </span>
+              <span style={{ fontSize: 10, color: "rgba(255,230,102,0.7)" }}>{p.source}</span>
+              {p.error && <span style={{ fontSize: 9, color: "#ff6644" }}>{p.error}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Summary */}
+      {summary && (
+        <div style={{ background: "rgba(0,255,136,0.04)", border: "1px solid rgba(0,255,136,0.15)", borderRadius: 3, padding: "10px 14px", marginBottom: 14, fontSize: 10, color: "#00ff88", lineHeight: 1.6 }}>
+          {summary}
+        </div>
+      )}
+
+      {/* NTLM Hashes */}
+      {hashes.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 8, letterSpacing: 3, color: "rgba(255,179,0,0.4)", marginBottom: 6 }}>NTLM HASHES ({hashes.length})</div>
+          <div style={{ background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,179,0,0.08)", borderRadius: 3, padding: "10px 14px", fontFamily: "monospace", fontSize: 10 }}>
+            {hashes.map((h: string, i: number) => (
+              <div key={i} style={{ color: "rgba(255,230,102,0.8)", marginBottom: 2 }}>{h}</div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Full output */}
+      {fullOutput && (
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 8, letterSpacing: 3, color: "rgba(255,179,0,0.4)", marginBottom: 6 }}>FULL OUTPUT</div>
+          <pre style={{
+            background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,179,0,0.08)",
+            borderRadius: 3, padding: "12px 14px", fontSize: 9, lineHeight: 1.7,
+            color: "rgba(255,230,102,0.75)", overflowX: "auto", whiteSpace: "pre-wrap",
+            maxHeight: 400, overflowY: "auto",
+          }}>
+            {fullOutput}
+          </pre>
+        </div>
+      )}
+
+      {/* Memory inspector */}
+      {(state === "running" || state === "done") && (
+        <div style={{ borderTop: "1px solid rgba(255,179,0,0.08)", paddingTop: 16 }}>
+          <SectionHeader title="MEMORY INSPECTOR" icon="🔍" />
+          <div style={{ display: "flex", gap: 10, marginBottom: 10, alignItems: "flex-end" }}>
+            <div style={{ flex: 1 }}>
+              <Field label="PID (blank = all processes)" value={pidInput} onChange={setPidInput} placeholder="e.g. 1234" />
+            </div>
+            <div style={{ flex: 2 }}>
+              <Field label="Pattern (optional)" value={patInput} onChange={setPatInput} placeholder="e.g. password[:=]" />
+            </div>
+            <Btn label="SCAN" onClick={() => {
+              const pid  = pidInput ? parseInt(pidInput) : null;
+              const pats = patInput ? [patInput] : undefined;
+              inspectMemory(pid, pats);
+            }} />
+          </div>
+          {memoryResult && (
+            <pre style={{
+              background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,179,0,0.08)",
+              borderRadius: 3, padding: "10px 14px", fontSize: 9, lineHeight: 1.7,
+              color: "rgba(255,230,102,0.75)", whiteSpace: "pre-wrap",
+              maxHeight: 300, overflowY: "auto",
+            }}>
+              {JSON.stringify(memoryResult, null, 2)}
+            </pre>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function _useLocalAccessFallback() {
+  return {
+    state: "idle" as const, readyPayload: null, progress: [], fullOutput: "",
+    hashes: [], summary: "", error: "", memoryResult: null,
+    startSession: () => {}, confirm: () => {}, cancel: () => {},
+    endSession: () => {}, inspectMemory: () => {},
+  };
+}
+
 const TABS: { id: Tab; label: string }[] = [
   { id: "scanner",   label: "NMAP"      },
   { id: "iprep",     label: "IP REP"    },
@@ -954,10 +1122,15 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "password",  label: "PASSWORD"  },
   { id: "url",       label: "URL SCAN"  },
   { id: "log",       label: "EVENT LOG" },
+  { id: "localaccess", label: "LOCAL ACCESS" },
 ];
 
 export function SecurityPanel() {
   const [tab, setTab] = useState<Tab>("scanner");
+  const localAccess   = useLocalAccess();
+
+  // Expose to LocalAccessTab via window (avoids prop-drilling through all tabs)
+  (window as any).__useLocalAccess = () => localAccess;
 
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -990,8 +1163,9 @@ export function SecurityPanel() {
         {tab === "vpn"        && <VpnTab />}
         {tab === "firewall"   && <FirewallTab />}
         {tab === "password"   && <PasswordTab />}
-        {tab === "url"        && <UrlTab />}
-        {tab === "log"        && <LogTab />}
+        {tab === "url"         && <UrlTab />}
+        {tab === "log"         && <LogTab />}
+        {tab === "localaccess" && <LocalAccessTab />}
       </div>
     </div>
   );

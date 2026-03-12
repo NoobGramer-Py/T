@@ -158,6 +158,12 @@ async def handle(client: "Client", raw: str) -> None:
     elif t == "voice_start":             await _handle_voice_start(client)
     elif t == "voice_stop":              await _handle_voice_stop(client)
     elif t == "voice_enable":            _handle_voice_enable(client, msg)
+    elif t == "local_access_start":      await _handle_local_access_start(client, msg)
+    elif t == "local_access_confirm":    await _handle_local_access_confirm(client, msg)
+    elif t == "local_access_end":        await _handle_local_access_end(client, msg)
+    elif t == "memory_inspect":          await _handle_memory_inspect(client, msg)
+    elif t == "set_reminder":            _handle_set_reminder(client, msg)
+    elif t == "cancel_reminder":         _handle_cancel_reminder(client, msg)
     elif t == "ping":                    await client.send({"type": "pong"})
     else:
         log.warning(f"unknown message type '{t}' from {client.id}")
@@ -175,6 +181,17 @@ async def _handle_chat(client: "Client", msg: dict) -> None:
     history.append({"role": "user", "content": content})
     if len(history) > 40:
         _histories[client.id] = history[-40:]
+
+    # Observe for pattern-based suggestions (non-blocking)
+    try:
+        from proactive.engine import observe_message
+        suggestion = observe_message(content)
+        if suggestion:
+            asyncio.create_task(
+                client.send({"type": "proactive_alert", "severity": "info", "message": suggestion})
+            )
+    except Exception:
+        pass
 
     profile  = _profiles.get(client.id, {})
     groq_key = profile.get("groqKey", "")
@@ -313,3 +330,47 @@ def on_disconnect(client_id: str) -> None:
         fut.cancel()
     from voice.pipeline import cleanup
     cleanup(client_id)
+
+
+# ─── Local Access ─────────────────────────────────────────────────────────────
+
+async def _handle_local_access_start(client: "Client", msg: dict) -> None:
+    from local_access.orchestrator import handle_start
+    await handle_start(client, msg)
+
+
+async def _handle_local_access_confirm(client: "Client", msg: dict) -> None:
+    from local_access.orchestrator import handle_confirm
+    await handle_confirm(client, msg)
+
+
+async def _handle_local_access_end(client: "Client", msg: dict) -> None:
+    from local_access.orchestrator import handle_end
+    await handle_end(client, msg)
+
+
+async def _handle_memory_inspect(client: "Client", msg: dict) -> None:
+    from local_access.orchestrator import handle_memory_inspect
+    await handle_memory_inspect(client, msg)
+
+
+# ─── Reminders ────────────────────────────────────────────────────────────────
+
+def _handle_set_reminder(client: "Client", msg: dict) -> None:
+    try:
+        from proactive.engine import schedule_reminder
+        schedule_reminder(
+            alert_id=msg["id"],
+            message=msg["message"],
+            fire_at=float(msg["fire_at"]),
+        )
+    except Exception as e:
+        log.warning(f"set_reminder error: {e}")
+
+
+def _handle_cancel_reminder(client: "Client", msg: dict) -> None:
+    try:
+        from proactive.engine import cancel_reminder
+        cancel_reminder(msg["id"])
+    except Exception as e:
+        log.warning(f"cancel_reminder error: {e}")
