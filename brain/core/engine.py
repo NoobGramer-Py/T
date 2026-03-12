@@ -12,11 +12,9 @@ if TYPE_CHECKING:
 
 log = get_logger("engine")
 
-# Per-client conversation history: client_id → list of {role, content}
 _histories: dict[str, list[dict]] = {}
-
-# Per-client profile data synced from Tauri
-_profiles: dict[str, dict] = {}
+_profiles:  dict[str, dict]       = {}
+_voice_active: set[str]           = set()   # client IDs with voice enabled
 
 
 async def handle(client: "Client", raw: str) -> None:
@@ -29,12 +27,12 @@ async def handle(client: "Client", raw: str) -> None:
 
     msg_type = msg.get("type")
 
-    if msg_type == "chat":
-        await _handle_chat(client, msg)
-    elif msg_type == "profile_sync":
-        await _handle_profile_sync(client, msg)
-    elif msg_type == "ping":
-        await client.send({"type": "pong"})
+    if   msg_type == "chat":          await _handle_chat(client, msg)
+    elif msg_type == "profile_sync":  await _handle_profile_sync(client, msg)
+    elif msg_type == "voice_start":   await _handle_voice_start(client)
+    elif msg_type == "voice_stop":    await _handle_voice_stop(client)
+    elif msg_type == "voice_enable":  _handle_voice_enable(client, msg)
+    elif msg_type == "ping":          await client.send({"type": "pong"})
     else:
         log.warning(f"unknown message type '{msg_type}' from {client.id}")
 
@@ -47,15 +45,11 @@ async def _handle_chat(client: "Client", msg: dict) -> None:
 
     history = _histories.setdefault(client.id, [])
     history.append({"role": "user", "content": content})
-
-    # Keep last 40 turns (20 exchanges)
     if len(history) > 40:
         _histories[client.id] = history[-40:]
 
-    profile  = _profiles.get(client.id, {})
-    groq_key = profile.get("groqKey", "")
-
-    # Inject relevant memories into system prompt
+    profile    = _profiles.get(client.id, {})
+    groq_key   = profile.get("groqKey", "")
     memory_ctx = build_context(content, profile)
 
     await client.send({"type": "visualizer", "mode": "listening"})
@@ -76,15 +70,36 @@ async def _handle_chat(client: "Client", msg: dict) -> None:
         await client.send({"type": "chat_done", "id": msg_id, "provider": used_provider})
         await client.send({"type": "visualizer", "mode": "speaking"})
 
-        # Extract and persist memories in the background — never blocks the response
-        asyncio.create_task(
-            _extract_and_store(client, content, full_response, groq_key)
-        )
+        asyncio.create_task(_extract_and_store(client, content, full_response, groq_key))
+
+        # Send TTS if voice is active for this client
+        if client.id in _voice_active:
+            from voice.pipeline import speak
+            asyncio.create_task(speak(client, full_response))
 
     except RuntimeError as e:
         log.error(f"LLM error: {e}")
         await client.send({"type": "chat_error", "id": msg_id, "error": str(e)})
         await client.send({"type": "visualizer", "mode": "idle"})
+
+
+async def _handle_voice_start(client: "Client") -> None:
+    from voice.pipeline import handle_voice_start
+    await handle_voice_start(client)
+
+
+async def _handle_voice_stop(client: "Client") -> None:
+    from voice.pipeline import handle_voice_stop
+    await handle_voice_stop(client)
+
+
+def _handle_voice_enable(client: "Client", msg: dict) -> None:
+    enabled = bool(msg.get("enabled", False))
+    if enabled:
+        _voice_active.add(client.id)
+    else:
+        _voice_active.discard(client.id)
+    log.info(f"voice {'enabled' if enabled else 'disabled'}  client={client.id}")
 
 
 async def _extract_and_store(
@@ -93,17 +108,12 @@ async def _extract_and_store(
     assistant_msg: str,
     groq_key:      str,
 ) -> None:
-    """Run memory extraction after a response and persist any new facts."""
     try:
         facts = await extract(user_msg, assistant_msg, groq_key=groq_key)
         for fact in facts:
             upsert(fact["key"], fact["value"])
             log.info(f"memory saved  key={fact['key']!r}")
-            await client.send({
-                "type":  "memory_saved",
-                "key":   fact["key"],
-                "value": fact["value"],
-            })
+            await client.send({"type": "memory_saved", "key": fact["key"], "value": fact["value"]})
     except Exception as e:
         log.warning(f"memory extraction error: {e}")
 
@@ -116,6 +126,8 @@ async def _handle_profile_sync(client: "Client", msg: dict) -> None:
 
 
 def on_disconnect(client_id: str) -> None:
-    """Clean up per-client state when a client disconnects."""
     _histories.pop(client_id, None)
     _profiles.pop(client_id, None)
+    _voice_active.discard(client_id)
+    from voice.pipeline import cleanup
+    cleanup(client_id)

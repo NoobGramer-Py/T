@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useTStore } from "../../store";
 import { useChat } from "../../hooks/useChat";
-import { useVoiceInput } from "../../hooks/useVoice";
+import { useVoiceTranscript } from "../../hooks/useVoice";
+import { useBrainVoice } from "../../hooks/useBridge";
 import { JarvisCoreVisualizer } from "../hud/JarvisCoreVisualizer";
 
 function TypingIndicator() {
@@ -63,11 +64,13 @@ export function ChatPanel() {
   const [input, setInput] = useState("");
   const bottomRef  = useRef<HTMLDivElement>(null);
   const inputRef   = useRef<HTMLTextAreaElement>(null);
+  const { startPTT, stopPTT } = useBrainVoice();
 
-  // Wire voice input — sends directly to chat when wake word + command detected
-  useVoiceInput((transcript) => {
-    send(transcript);
-  });
+  // When brain sends a transcript, auto-send it as a message
+  const onTranscript = useCallback((text: string) => {
+    send(text);
+  }, [send]);
+  useVoiceTranscript(onTranscript);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -187,6 +190,29 @@ export function ChatPanel() {
             >
               ▶
             </button>
+
+            {/* Push-to-talk mic button — only shown when voice is enabled and brain is online */}
+            {voiceEnabled && (
+              <button
+                onMouseDown={startPTT}
+                onMouseUp={stopPTT}
+                onTouchStart={startPTT}
+                onTouchEnd={stopPTT}
+                disabled={isTyping}
+                style={{
+                  width: 36, height: 36, flexShrink: 0,
+                  background: voiceListening ? "rgba(255,179,0,0.2)" : "rgba(255,179,0,0.05)",
+                  border: `1px solid ${voiceListening ? "#ffb300" : "rgba(255,179,0,0.2)"}`,
+                  borderRadius: 4, cursor: isTyping ? "not-allowed" : "pointer",
+                  color: voiceListening ? "#ffb300" : "rgba(255,179,0,0.4)",
+                  fontSize: 14, transition: "all 0.15s ease",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  boxShadow: voiceListening ? "0 0 10px rgba(255,179,0,0.3)" : "none",
+                }}
+              >
+                🎙
+              </button>
+            )}
           </div>
 
           <div style={{ marginTop: 6, paddingLeft: 24, fontSize: 8, color: "rgba(255,179,0,0.2)", letterSpacing: 2 }}>

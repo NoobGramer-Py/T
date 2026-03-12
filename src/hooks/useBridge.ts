@@ -22,6 +22,70 @@ export function useBrainConnection(): void {
   }, [setVisualizerMode]);
 }
 
+// Handles push-to-talk voice via brain pipeline.
+// Returns { startPTT, stopPTT, playAudio } — all stable references.
+export function useBrainVoice() {
+  const { setVoiceListening, setVisualizerMode, voiceEnabled } = useTStore();
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
+  // Sync voice_enable state to brain when voiceEnabled changes
+  useEffect(() => {
+    if (bridge.getStatus() !== "online") return;
+    bridge.send({ type: "voice_enable", enabled: voiceEnabled });
+  }, [voiceEnabled]);
+
+  // Also send voice_enable when brain comes online
+  useEffect(() => {
+    const unsub = bridge.onMessage((msg: BrainMessage) => {
+      if (msg.type === "brain_status" && msg.online === true) {
+        bridge.send({ type: "voice_enable", enabled: voiceEnabled });
+      }
+    });
+    return unsub;
+  }, [voiceEnabled]);
+
+  // Handle incoming TTS audio from brain
+  useEffect(() => {
+    const unsub = bridge.onMessage(async (msg: BrainMessage) => {
+      if (msg.type !== "tts_audio") return;
+      try {
+        const b64   = msg.audio as string;
+        const sr    = msg.sample_rate as number;
+        const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+
+        if (!audioCtxRef.current) {
+          audioCtxRef.current = new AudioContext({ sampleRate: sr });
+        }
+        const ctx    = audioCtxRef.current;
+        const buffer = await ctx.decodeAudioData(bytes.buffer);
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(ctx.destination);
+        source.onended = () => setVisualizerMode("idle");
+        source.start();
+        setVisualizerMode("speaking");
+      } catch (e) {
+        console.error("[voice] tts_audio decode error", e);
+      }
+    });
+    return unsub;
+  }, [setVisualizerMode]);
+
+  const startPTT = useCallback(() => {
+    if (bridge.getStatus() !== "online") return;
+    bridge.send({ type: "voice_start" });
+    setVoiceListening(true);
+  }, [setVoiceListening]);
+
+  const stopPTT = useCallback(() => {
+    if (bridge.getStatus() !== "online") return;
+    bridge.send({ type: "voice_stop" });
+    setVoiceListening(false);
+  }, [setVoiceListening]);
+
+  return { startPTT, stopPTT };
+}
+
 // Returns the current brain connection status.
 export function useBrainStatus(): BrainStatus {
   const [status, setStatus] = useState<BrainStatus>(bridge.getStatus());
