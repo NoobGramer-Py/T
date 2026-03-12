@@ -1,7 +1,11 @@
 import json
+import asyncio
 from typing import TYPE_CHECKING
 from .llm import chat
 from .logger import get_logger
+from brain.memory.injector import build_context
+from brain.memory.extractor import extract
+from brain.memory.store import upsert
 
 if TYPE_CHECKING:
     from .ws_server import Client
@@ -44,13 +48,15 @@ async def _handle_chat(client: "Client", msg: dict) -> None:
     history = _histories.setdefault(client.id, [])
     history.append({"role": "user", "content": content})
 
-    # Keep last 40 turns (20 exchanges) in memory
+    # Keep last 40 turns (20 exchanges)
     if len(history) > 40:
         _histories[client.id] = history[-40:]
 
-    profile    = _profiles.get(client.id, {})
-    groq_key   = profile.get("groqKey", "")
-    memory_ctx = _build_memory_context(profile)
+    profile  = _profiles.get(client.id, {})
+    groq_key = profile.get("groqKey", "")
+
+    # Inject relevant memories into system prompt
+    memory_ctx = build_context(content, profile)
 
     await client.send({"type": "visualizer", "mode": "listening"})
 
@@ -67,13 +73,39 @@ async def _handle_chat(client: "Client", msg: dict) -> None:
             await client.send({"type": "chat_chunk", "id": msg_id, "chunk": chunk})
 
         history.append({"role": "assistant", "content": full_response})
-        await client.send({"type": "chat_done",  "id": msg_id, "provider": used_provider})
+        await client.send({"type": "chat_done", "id": msg_id, "provider": used_provider})
         await client.send({"type": "visualizer", "mode": "speaking"})
+
+        # Extract and persist memories in the background — never blocks the response
+        asyncio.create_task(
+            _extract_and_store(client, content, full_response, groq_key)
+        )
 
     except RuntimeError as e:
         log.error(f"LLM error: {e}")
         await client.send({"type": "chat_error", "id": msg_id, "error": str(e)})
         await client.send({"type": "visualizer", "mode": "idle"})
+
+
+async def _extract_and_store(
+    client:        "Client",
+    user_msg:      str,
+    assistant_msg: str,
+    groq_key:      str,
+) -> None:
+    """Run memory extraction after a response and persist any new facts."""
+    try:
+        facts = await extract(user_msg, assistant_msg, groq_key=groq_key)
+        for fact in facts:
+            upsert(fact["key"], fact["value"])
+            log.info(f"memory saved  key={fact['key']!r}")
+            await client.send({
+                "type":  "memory_saved",
+                "key":   fact["key"],
+                "value": fact["value"],
+            })
+    except Exception as e:
+        log.warning(f"memory extraction error: {e}")
 
 
 async def _handle_profile_sync(client: "Client", msg: dict) -> None:
@@ -83,20 +115,7 @@ async def _handle_profile_sync(client: "Client", msg: dict) -> None:
     await client.send({"type": "profile_ack"})
 
 
-def _build_memory_context(profile: dict) -> str:
-    name = profile.get("name", "")
-    notes = profile.get("notes", "")
-    lines: list[str] = []
-    if name:
-        lines.append(f"The user's name is {name}.")
-    if notes:
-        lines.append(f"Notes: {notes}")
-    if not lines:
-        return ""
-    return "[PERSISTENT MEMORY]\n" + "\n".join(lines) + "\n[END MEMORY]"
-
-
 def on_disconnect(client_id: str) -> None:
-    """Clean up history when a client disconnects."""
+    """Clean up per-client state when a client disconnects."""
     _histories.pop(client_id, None)
     _profiles.pop(client_id, None)

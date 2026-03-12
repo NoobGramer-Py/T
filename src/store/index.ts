@@ -62,6 +62,10 @@ export interface TStore {
   provider:    "groq" | "ollama";
   setProvider: (p: "groq" | "ollama") => void;
 
+  // ── Brain memories (received via memory_saved events)
+  brainMemories:   Record<string, string>;
+  addBrainMemory:  (key: string, value: string) => void;
+
   // ── User profile
   profile:    UserProfile;
   setProfile: (p: Partial<UserProfile>) => void;
@@ -109,6 +113,11 @@ export const useTStore = create<TStore>((set) => ({
   // ── AI provider
   provider:    "groq",
   setProvider: (provider) => set({ provider }),
+
+  // ── Brain memories
+  brainMemories:  {},
+  addBrainMemory: (key, value) =>
+    set((s) => ({ brainMemories: { ...s.brainMemories, [key]: value } })),
 
   // ── User profile
   profile: { name: "", groqKey: "", abuseipdbKey: "", virusTotalKey: "", hibpKey: "", timezone: "", notes: "" },

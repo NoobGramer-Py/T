@@ -108,3 +108,20 @@ export function useBrainProfileSync(): void {
     return unsub;
   }, [profile]);
 }
+
+// Listens for memory_saved events from the brain and adds them to the store.
+export function useBrainMemory(): void {
+  const { addBrainMemory } = useTStore();
+
+  useEffect(() => {
+    const unsub = bridge.onMessage((msg: BrainMessage) => {
+      if (msg.type === "memory_saved") {
+        addBrainMemory(
+          msg.key   as string,
+          msg.value as string,
+        );
+      }
+    });
+    return unsub;
+  }, [addBrainMemory]);
+}
