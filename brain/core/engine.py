@@ -3,9 +3,9 @@ import asyncio
 from typing import TYPE_CHECKING
 from .llm import chat
 from .logger import get_logger
-from brain.memory.injector import build_context
-from brain.memory.extractor import extract
-from brain.memory.store import upsert
+from memory.injector import build_context
+from memory.extractor import extract
+from memory.store import upsert
 
 if TYPE_CHECKING:
     from .ws_server import Client

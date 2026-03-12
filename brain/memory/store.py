@@ -1,7 +1,7 @@
 import os
 import chromadb
 from chromadb.config import Settings
-from brain.core.logger import get_logger
+from core.logger import get_logger
 
 log = get_logger("memory.store")
 

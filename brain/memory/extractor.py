@@ -1,7 +1,7 @@
 import json
 import httpx
 import os
-from brain.core.logger import get_logger
+from core.logger import get_logger
 
 log = get_logger("memory.extractor")
 
