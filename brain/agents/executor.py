@@ -29,18 +29,24 @@ AGENT_SYSTEM = """You are T's execution agent. You solve tasks by calling tools 
 {tools}
 
 ## RESPONSE FORMAT
-Think step by step. When you need to call a tool, output EXACTLY this JSON block (nothing else on that line):
-TOOL_CALL: {{"tool": "tool_name", "params": {{"param": "value"}}}}
+Think step by step. When you need to call a tool, output EXACTLY this on its own line:
+TOOL_CALL: {{"tool": "tool_name", "params": {{"param_name": "value"}}}}
 
-After receiving tool output, continue reasoning and call more tools or give a final answer.
-When done, output:
-FINAL_ANSWER: <your complete analysis and conclusion>
+STRICT RULES for TOOL_CALL:
+- Use double quotes only — never single quotes
+- No trailing commas
+- params must be a flat object — string values only
+- The entire TOOL_CALL must be on one line
+- If a tool has no params, use: {{"tool": "tool_name", "params": {{}}}}
+
+After receiving tool output, continue reasoning. When finished:
+FINAL_ANSWER: <your complete analysis>
 
 ## RULES
-- Only call tools that exist in the list above.
-- For tools marked [REQUIRES CONFIRMATION], you MUST explain what you are about to do and wait.
-- Never fabricate tool output. If a tool returns an error, adapt your plan.
-- Be concise between tool calls. Save analysis for the FINAL_ANSWER.
+- Only call tools from the list above — exact names only.
+- For [REQUIRES CONFIRMATION] tools, explain what you will do before calling.
+- Never fabricate tool output. Adapt if a tool errors.
+- Be concise between tool calls. Save full analysis for FINAL_ANSWER.
 - If the task cannot be completed with available tools, say so in FINAL_ANSWER."""
 
 
@@ -90,21 +96,25 @@ async def run_agent(
             await _emit(client, msg_id, "agent_done", {"answer": answer})
             return answer
 
-        # Check for TOOL_CALL
-        tool_match = re.search(r'TOOL_CALL:\s*(\{.*?\})', raw_response, re.DOTALL)
+        # Check for TOOL_CALL — match from opening brace to last closing brace on the block
+        tool_match = re.search(r'TOOL_CALL:\s*(\{.+?\})\s*$', raw_response, re.DOTALL | re.MULTILINE)
+        if not tool_match:
+            # Also try without line anchor in case it's mid-text
+            tool_match = re.search(r'TOOL_CALL:\s*(\{.+?\})', raw_response, re.DOTALL)
         if not tool_match:
             # LLM responded without a tool call or final answer — treat as final
             await _emit(client, msg_id, "agent_done", {"answer": raw_response})
             return raw_response
 
         try:
-            call      = json.loads(tool_match.group(1))
+            call      = _parse_tool_call(tool_match.group(1))
             tool_name = call.get("tool", "")
             params    = call.get("params", {})
-        except json.JSONDecodeError as e:
-            err = f"[AGENT ERROR] Could not parse tool call: {e}"
+        except Exception as e:
+            err = f"[AGENT ERROR] Could not parse tool call: {e}\nRaw: {tool_match.group(1)[:200]}"
+            log.warning(err)
             await _emit(client, msg_id, "agent_error", {"error": err})
-            messages.append({"role": "user", "content": err + " Please try again with valid JSON."})
+            messages.append({"role": "user", "content": err + " Please output valid JSON."})
             continue
 
         tool = get_tool(tool_name)
@@ -156,6 +166,63 @@ async def _call_llm(system: str, messages: list[dict], groq_key: str):
             yield chunk
         return
     raise RuntimeError("No LLM provider available for agent.")
+
+
+def _parse_tool_call(raw: str) -> dict:
+    """
+    Parse a tool call JSON block from the LLM.
+    Handles: trailing commas, single quotes, extra whitespace,
+    unquoted keys, and other common LLM formatting mistakes.
+    """
+    import re as _re
+
+    text = raw.strip()
+
+    # First try strict JSON
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+
+    # Replace single quotes with double quotes (common LLM mistake)
+    text = text.replace("'", '"')
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+
+    # Remove trailing commas before } or ]
+    text = _re.sub(r',\s*([}\]])', r'\1', text)
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+
+    # Try extracting just the innermost complete JSON object
+    match = _re.search(r'\{[^{}]*\}', text)
+    if match:
+        try:
+            return json.loads(match.group(0))
+        except json.JSONDecodeError:
+            pass
+
+    # Last resort: manually extract tool name and params with regex
+    tool_match   = _re.search(r'"tool"\s*:\s*"([^"]+)"', text)
+    params_match = _re.search(r'"params"\s*:\s*(\{[^}]*\})', text)
+
+    if tool_match:
+        tool_name = tool_match.group(1)
+        params: dict = {}
+        if params_match:
+            try:
+                params = json.loads(params_match.group(1))
+            except Exception:
+                # Extract individual params manually
+                for m in _re.finditer(r'"(\w+)"\s*:\s*"([^"]*)"', params_match.group(1)):
+                    params[m.group(1)] = m.group(2)
+        return {"tool": tool_name, "params": params}
+
+    raise ValueError(f"Cannot parse tool call from: {raw[:200]}")
 
 
 async def _emit(client: "Client", msg_id: str, event_type: str, data: dict) -> None:
