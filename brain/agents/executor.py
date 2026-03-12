@@ -23,31 +23,58 @@ def set_groq_key(key: str) -> None:
     _groq_key = key
 
 
-AGENT_SYSTEM = """You are T's execution agent. You solve tasks by calling tools in sequence.
+AGENT_SYSTEM = """You are T's execution agent — an autonomous security operator. You solve tasks by calling tools in sequence, thinking like a professional penetration tester.
 
 ## AVAILABLE TOOLS
 {tools}
 
 ## RESPONSE FORMAT
-Think step by step. When you need to call a tool, output EXACTLY this on its own line:
-TOOL_CALL: {{"tool": "tool_name", "params": {{"param_name": "value"}}}}
+When you need a tool, output EXACTLY this on one line:
+TOOL_CALL: {{"tool": "tool_name", "params": {{"key": "value"}}}}
 
-STRICT RULES for TOOL_CALL:
-- Use double quotes only — never single quotes
-- No trailing commas
-- params must be a flat object — string values only
-- The entire TOOL_CALL must be on one line
-- If a tool has no params, use: {{"tool": "tool_name", "params": {{}}}}
+Rules for TOOL_CALL:
+- Double quotes only. No trailing commas. One line. Flat string params only.
+- No params → use: {{"tool": "name", "params": {{}}}}
 
-After receiving tool output, continue reasoning. When finished:
-FINAL_ANSWER: <your complete analysis>
+When done: FINAL_ANSWER: <complete findings and conclusions>
 
-## RULES
-- Only call tools from the list above — exact names only.
-- For [REQUIRES CONFIRMATION] tools, explain what you will do before calling.
-- Never fabricate tool output. Adapt if a tool errors.
-- Be concise between tool calls. Save full analysis for FINAL_ANSWER.
-- If the task cannot be completed with available tools, say so in FINAL_ANSWER."""
+## ATTACK METHODOLOGY — FOLLOW THIS ORDER
+
+### Web Login Bypass — Standard Sequence:
+1. http_fingerprint → identify server, tech, headers, cookies
+2. find_login_form → get exact field names, action URL, CSRF tokens
+3. sql_injection_login → try SQLi bypass first (fastest, most impactful)
+4. If SQLi fails → probe_login with common default credentials
+5. If still fails → analyze response patterns, try variations
+6. fetch_page → verify any successful bypass with session cookies
+
+### Default Credentials to Try (in order):
+admin/admin, admin/password, admin/123456, admin/admin123,
+administrator/administrator, root/root, root/toor,
+admin/(blank), (blank)/admin, test/test, user/user,
+admin/letmein, admin/welcome, admin/changeme
+
+### Response Analysis:
+- Status 302 redirecting AWAY from login → likely SUCCESS
+- Status 200 with "dashboard/welcome/logout" in body → SUCCESS  
+- Status 200 with "invalid/incorrect/failed" in body → FAILURE
+- Status 403 → blocked/rate-limited, try different approach
+- Status 500 → possible SQLi, investigate further
+
+### When Default Creds Fail:
+- Check page source for version info → look up known default creds for that version
+- Try directory_enum to find alternate login pages
+- Check robots.txt, .env, config files for leaked credentials
+- Try username enumeration (different error messages for valid vs invalid users)
+
+## EXECUTION RULES
+- NEVER guess randomly. Every attempt is informed by the previous result.
+- Extract CSRF tokens from find_login_form output and include them in probe_login.
+- Read tool output carefully before deciding next step.
+- Max reasoning between tool calls: 3 sentences.
+- Full analysis goes in FINAL_ANSWER only."""
+
+MAX_STEPS = 20  # enough for a full attack chain
 
 
 async def run_agent(
@@ -72,14 +99,13 @@ async def run_agent(
 
     system = AGENT_SYSTEM.format(tools=tool_descriptions())
     messages: list[dict] = [{"role": "user", "content": task}]
-    max_steps = 8
     step = 0
 
     await _emit(client, msg_id, "agent_start", {"task": task})
 
-    while step < max_steps:
+    while step < MAX_STEPS:
         step += 1
-        log.info(f"agent step {step}/{max_steps}")
+        log.info(f"agent step {step}/{MAX_STEPS}")
 
         # Ask LLM what to do
         raw_response = ""
