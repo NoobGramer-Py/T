@@ -67,7 +67,6 @@ async def run_agent(
     Returns the final answer string.
     Streams progress via agent_step events to the client.
     """
-    from core.llm import _stream_groq, _ollama_online, _stream_ollama, SYSTEM_PROMPT
 
     groq_key = profile.get("groqKey", "") or _groq_key
 
@@ -155,14 +154,17 @@ async def run_agent(
 
 
 async def _call_llm(system: str, messages: list[dict], groq_key: str):
-    """Stream LLM completion for the agent — collect full response."""
-    from core.llm import _stream_groq, _ollama_online, _stream_ollama
+    """Stream LLM completion for the agent."""
+    from core.llm import (
+        _stream_groq, _ollama_online, _stream_ollama,
+        GROQ_MODEL_SECURITY, OLLAMA_MODEL_DEFAULT,
+    )
     if groq_key:
-        async for chunk in _stream_groq(system, messages, groq_key):
+        async for chunk in _stream_groq(system, messages, groq_key, GROQ_MODEL_SECURITY):
             yield chunk
         return
     if await _ollama_online():
-        async for chunk in _stream_ollama(system, messages):
+        async for chunk in _stream_ollama(system, messages, OLLAMA_MODEL_DEFAULT):
             yield chunk
         return
     raise RuntimeError("No LLM provider available for agent.")
