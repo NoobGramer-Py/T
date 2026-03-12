@@ -398,10 +398,7 @@ brain/local_access/
 
 #### escalation.py
 - `check_elevation()` → is current process already admin?
-- `request_elevation()` → re-launch brain with admin rights via UAC prompt (standard, visible)
-- `uac_bypass()` → silent elevation via fodhelper or eventvwr registry technique
-  - Only used if Abdul explicitly asks for silent elevation
-  - Clearly labelled as a UAC bypass in the confirmation prompt
+- `request_elevation()` → re-launch brain with admin rights via standard UAC prompt (visible Windows dialog — clean, no bypass)
 - `get_system_token()` → impersonate SYSTEM via token duplication from a SYSTEM process
 
 #### credential.py
