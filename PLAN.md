@@ -231,12 +231,69 @@ T/                                  ← Tauri desktop app (exists)
 
 ### Phase 6 — Proactive Engine
 **Goal**: T initiates — alerts, monitors, suggestions without being asked.
+T becomes genuinely proactive: it watches the system in the background, detects anomalies,
+fires scheduled alerts, and surfaces suggestions based on observed patterns.
+All proactive messages arrive as chat_chunk events — no new UI required.
 
-- [ ] `brain/proactive/alerts.py` — time-based and condition-based alerts
-- [ ] `brain/proactive/monitor.py` — system health, anomaly detection
-- [ ] `brain/proactive/suggestions.py` — pattern learning, proactive nudges
+#### Architecture
+```
+brain/proactive/
+├── __init__.py
+├── engine.py          ← scheduler loop, starts all monitors, routes alerts to client
+├── monitor.py         ← system health: CPU, RAM, disk, network anomalies
+├── alerts.py          ← time-based + condition-based alert definitions
+└── suggestions.py     ← pattern observer, surfaces contextual nudges
+```
 
-**Done when**: T says "CPU has been at 95% for 10 minutes — process X is the culprit."
+#### engine.py — Proactive Scheduler
+- Runs as a background asyncio task started at brain boot
+- Polls monitors every 30s
+- Fires alert callbacks when thresholds are crossed
+- Sends proactive messages to all connected clients via `ws_server.broadcast()`
+- Tracks cooldowns — no alert fires more than once per 10 minutes
+
+#### monitor.py — System Health
+Checks every 30 seconds:
+- CPU > 85% for 2+ consecutive checks → alert with top process name
+- RAM > 90% → alert with top memory consumer
+- Disk < 5GB free on any drive → alert with drive path
+- Network: new listening port detected → alert with PID and process name
+- Process crash: known process disappears from running list → alert
+
+#### alerts.py — Time-based + Condition Alerts
+- Scheduled reminders: Abdul can say "remind me in 2 hours" → stored alert fires via proactive engine
+- Daily summary: at a configured time, T sends a brief system health summary
+- Security: new outbound connection to unknown IP → log + alert (if suspicious)
+- Alert schema: `{type, message, severity: info|warn|critical, cooldown_minutes}`
+
+#### suggestions.py — Pattern Observer
+Observes over time:
+- If Abdul asks about the same topic 3+ times → suggest saving it to memory
+- If CPU spikes repeatedly at same time → suggest investigating the schedule
+- If a tool command fails repeatedly → suggest an alternative
+- Suggestions are short, one-line, non-intrusive
+
+#### WebSocket integration
+New message type sent from brain to Tauri:
+```json
+{"type": "proactive_alert", "severity": "warn", "message": "CPU at 91% — chrome.exe consuming 4.2GB RAM"}
+{"type": "proactive_alert", "severity": "info",  "message": "Daily summary: system healthy, 3 tasks completed today"}
+{"type": "proactive_alert", "severity": "critical", "message": "New listening port 4444 opened by powershell.exe — possible reverse shell"}
+```
+Tauri displays these as non-blocking notifications in the chat panel (different styling from T responses).
+
+#### Files to build
+- [ ] `brain/proactive/__init__.py`
+- [ ] `brain/proactive/engine.py` — background scheduler, broadcast loop
+- [ ] `brain/proactive/monitor.py` — CPU/RAM/disk/network/process watchers
+- [ ] `brain/proactive/alerts.py` — alert definitions, cooldown tracker, scheduled alerts
+- [ ] `brain/proactive/suggestions.py` — pattern observer
+- [ ] `brain/core/ws_server.py` — add `broadcast()` function for proactive messages
+- [ ] `brain/core/engine.py` — start proactive engine on brain boot, handle `set_alert` message type
+- [ ] `src/hooks/useBridge.ts` — handle `proactive_alert` message type
+- [ ] `src/components/chat/ChatPanel.tsx` — render proactive alerts with distinct styling
+
+**Done when**: T autonomously says "CPU has been at 95% for 10 minutes — chrome.exe is the culprit. Kill it?" and "Reminder: you asked me to check in at 3pm."
 
 ---
 

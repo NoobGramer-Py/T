@@ -101,6 +101,10 @@ async def tool_wordpress_user_enum(base_url: str, **_) -> str:
     from agents.web_attack import wordpress_user_enum
     return await wordpress_user_enum(base_url)
 
+async def tool_wp_full_attack(target_url: str, **_) -> str:
+    from agents.wp_attack import full_attack
+    return await full_attack(target_url)
+
 async def tool_sql_injection_login(
     url: str, username_field: str, password_field: str, **_
 ) -> str:
@@ -258,6 +262,13 @@ TOOLS: dict[str, Tool] = {
             "extra_fields":   "JSON of additional fields e.g. CSRF token: {\"_token\": \"abc\"}",
         },
         fn=tool_probe_login,
+    ),
+    "wp_full_attack": Tool(
+        name="wp_full_attack",
+        description="Full automated WordPress attack chain in one shot: fingerprint → username enumeration → plugin CVE detection → SQLi test → XML-RPC brute force with contextual wordlist → wp-login.php brute force. Uses site domain, emails, and usernames found to generate targeted passwords. Returns credentials if found, or honest failure report.",
+        params={"target_url": "WordPress site URL or wp-login.php URL"},
+        fn=tool_wp_full_attack,
+        requires_confirmation=True,
     ),
     "wordpress_user_enum": Tool(
         name="wordpress_user_enum",
