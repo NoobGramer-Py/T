@@ -41,9 +41,9 @@ export function useBrainStatus(): BrainStatus {
 // Falls back to direct AI if brain is offline.
 export function useBrainChat() {
   const pendingRef = useRef<Map<string, {
-    onChunk: (chunk: string) => void;
-    onDone:  () => void;
-    onError: (err: string) => void;
+    onChunk:    (chunk: string) => void;
+    onDone:     (provider: string) => void;
+    onError:    (err: string) => void;
   }>>(new Map());
 
   useEffect(() => {
@@ -56,7 +56,7 @@ export function useBrainChat() {
       if (msg.type === "chat_chunk") {
         pending.onChunk(msg.chunk as string);
       } else if (msg.type === "chat_done") {
-        pending.onDone();
+        pending.onDone((msg.provider as string) ?? "groq");
         pendingRef.current.delete(id);
       } else if (msg.type === "chat_error") {
         pending.onError(msg.error as string);
@@ -70,7 +70,7 @@ export function useBrainChat() {
     id:      string,
     content: string,
     onChunk: (chunk: string) => void,
-    onDone:  () => void,
+    onDone:  (provider: string) => void,
     onError: (err: string) => void,
   ): boolean => {
     const sent = bridge.send({ type: "chat", id, content });

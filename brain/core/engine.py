@@ -48,23 +48,26 @@ async def _handle_chat(client: "Client", msg: dict) -> None:
     if len(history) > 40:
         _histories[client.id] = history[-40:]
 
-    profile       = _profiles.get(client.id, {})
-    anthropic_key = profile.get("anthropicKey", "")
-    memory_ctx    = _build_memory_context(profile)
+    profile    = _profiles.get(client.id, {})
+    groq_key   = profile.get("groqKey", "")
+    memory_ctx = _build_memory_context(profile)
 
-    # Signal visualizer to listening state
     await client.send({"type": "visualizer", "mode": "listening"})
 
     full_response = ""
+    used_provider = "groq"
     try:
-        async for chunk in chat(history[:-1] + [{"role": "user", "content": content}],
-                                memory_context=memory_ctx,
-                                anthropic_key=anthropic_key):
+        async for chunk, provider in chat(
+            history[:-1] + [{"role": "user", "content": content}],
+            memory_context=memory_ctx,
+            groq_key=groq_key,
+        ):
             full_response += chunk
+            used_provider  = provider
             await client.send({"type": "chat_chunk", "id": msg_id, "chunk": chunk})
 
         history.append({"role": "assistant", "content": full_response})
-        await client.send({"type": "chat_done", "id": msg_id})
+        await client.send({"type": "chat_done",  "id": msg_id, "provider": used_provider})
         await client.send({"type": "visualizer", "mode": "speaking"})
 
     except RuntimeError as e:

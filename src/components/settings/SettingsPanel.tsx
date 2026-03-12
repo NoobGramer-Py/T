@@ -396,7 +396,4 @@ export function SettingsPanel() {
   );
 }
 
-// ─── Voice Settings Section ───────────────────────────────────────────────────
-// Appended in Phase 6
 
-import { useEffect as _useEffect, useState as _useState } from "react";

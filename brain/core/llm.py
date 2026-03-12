@@ -5,11 +5,11 @@ from .logger import get_logger
 
 log = get_logger("llm")
 
-OLLAMA_URL   = "http://localhost:11434"
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")
+GROQ_API_URL  = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_MODEL    = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
-ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
-ANTHROPIC_MODEL   = "claude-opus-4-6"
+OLLAMA_URL    = "http://localhost:11434"
+OLLAMA_MODEL  = os.getenv("OLLAMA_MODEL", "llama3.2")
 
 SYSTEM_PROMPT = """You are T — a private, locally-running AI system built exclusively for one person. You are not a general-purpose assistant. You are a personal intelligence system modelled after J.A.R.V.I.S. from Iron Man.
 
@@ -43,6 +43,20 @@ You are authoritative in:
 - When the situation calls for it — be direct to the point of bluntness. Abdul does not need his ego managed."""
 
 
+async def _groq_online(api_key: str) -> bool:
+    if not api_key:
+        return False
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            r = await client.get(
+                "https://api.groq.com/openai/v1/models",
+                headers={"Authorization": f"Bearer {api_key}"},
+            )
+            return r.status_code == 200
+    except Exception:
+        return False
+
+
 async def _ollama_online() -> bool:
     try:
         async with httpx.AsyncClient(timeout=2.0) as client:
@@ -55,31 +69,76 @@ async def _ollama_online() -> bool:
 async def chat(
     messages: list[dict],
     memory_context: str = "",
-    anthropic_key: str = "",
-) -> AsyncGenerator[str, None]:
+    groq_key: str = "",
+) -> AsyncGenerator[tuple[str, str], None]:
     """
-    Stream a response token by token.
-    Tries Ollama first; falls back to Anthropic if Ollama is offline and key is present.
-    Yields text chunks as they arrive.
+    Stream response chunks as (chunk_text, provider) tuples.
+    Provider is "groq" or "ollama".
+    Tries Groq first if key is available, falls back to Ollama.
     """
     system = f"{SYSTEM_PROMPT}\n\n{memory_context}" if memory_context else SYSTEM_PROMPT
+
+    if groq_key:
+        try:
+            log.info(f"provider=groq model={GROQ_MODEL}")
+            async for chunk in _stream_groq(system, messages, groq_key):
+                yield chunk, "groq"
+            return
+        except Exception as e:
+            log.warning(f"Groq failed: {e} — falling back to Ollama")
 
     if await _ollama_online():
         log.info(f"provider=ollama model={OLLAMA_MODEL}")
         async for chunk in _stream_ollama(system, messages):
-            yield chunk
+            yield chunk, "ollama"
         return
 
-    if anthropic_key:
-        log.info(f"provider=anthropic model={ANTHROPIC_MODEL}")
-        async for chunk in _stream_anthropic(system, messages, anthropic_key):
-            yield chunk
-        return
-
-    raise RuntimeError("No AI provider available. Start Ollama or set ANTHROPIC_API_KEY.")
+    raise RuntimeError(
+        "No AI provider available. Set Groq API key in Settings or start Ollama "
+        "(download from https://ollama.com → run: ollama pull llama3.2)."
+    )
 
 
-async def _stream_ollama(system: str, messages: list[dict]) -> AsyncGenerator[str, None]:
+async def _stream_groq(
+    system: str,
+    messages: list[dict],
+    api_key: str,
+) -> AsyncGenerator[str, None]:
+    import json
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type":  "application/json",
+    }
+    payload = {
+        "model":       GROQ_MODEL,
+        "messages":    [{"role": "system", "content": system}, *messages],
+        "max_tokens":  1024,
+        "temperature": 0.7,
+        "stream":      True,
+    }
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        async with client.stream("POST", GROQ_API_URL, headers=headers, json=payload) as resp:
+            resp.raise_for_status()
+            async for line in resp.aiter_lines():
+                if not line.startswith("data:"):
+                    continue
+                raw = line[5:].strip()
+                if raw == "[DONE]":
+                    break
+                try:
+                    data  = json.loads(raw)
+                    chunk = data["choices"][0].get("delta", {}).get("content", "")
+                    if chunk:
+                        yield chunk
+                except Exception:
+                    continue
+
+
+async def _stream_ollama(
+    system: str,
+    messages: list[dict],
+) -> AsyncGenerator[str, None]:
+    import json
     payload = {
         "model":    OLLAMA_MODEL,
         "messages": [{"role": "system", "content": system}, *messages],
@@ -88,51 +147,13 @@ async def _stream_ollama(system: str, messages: list[dict]) -> AsyncGenerator[st
     async with httpx.AsyncClient(timeout=120.0) as client:
         async with client.stream("POST", f"{OLLAMA_URL}/api/chat", json=payload) as resp:
             resp.raise_for_status()
-            import json
             async for line in resp.aiter_lines():
                 if not line:
                     continue
                 try:
-                    data = json.loads(line)
+                    data  = json.loads(line)
                     chunk = data.get("message", {}).get("content", "")
                     if chunk:
                         yield chunk
-                except Exception:
-                    continue
-
-
-async def _stream_anthropic(
-    system: str,
-    messages: list[dict],
-    api_key: str,
-) -> AsyncGenerator[str, None]:
-    headers = {
-        "x-api-key":         api_key,
-        "anthropic-version": "2023-06-01",
-        "content-type":      "application/json",
-    }
-    payload = {
-        "model":      ANTHROPIC_MODEL,
-        "max_tokens": 1024,
-        "system":     system,
-        "messages":   messages,
-        "stream":     True,
-    }
-    async with httpx.AsyncClient(timeout=120.0) as client:
-        async with client.stream("POST", ANTHROPIC_API_URL, headers=headers, json=payload) as resp:
-            resp.raise_for_status()
-            import json
-            async for line in resp.aiter_lines():
-                if not line.startswith("data:"):
-                    continue
-                raw = line[5:].strip()
-                if raw == "[DONE]":
-                    break
-                try:
-                    data = json.loads(raw)
-                    if data.get("type") == "content_block_delta":
-                        chunk = data.get("delta", {}).get("text", "")
-                        if chunk:
-                            yield chunk
                 except Exception:
                     continue
