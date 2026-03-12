@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useTStore } from "../../store";
 import { useChat } from "../../hooks/useChat";
 import { useVoiceTranscript } from "../../hooks/useVoice";
-import { useBrainVoice } from "../../hooks/useBridge";
+import { useBrainVoice, useAgent } from "../../hooks/useBridge";
 import { JarvisCoreVisualizer } from "../hud/JarvisCoreVisualizer";
 
 function TypingIndicator() {
@@ -65,6 +65,8 @@ export function ChatPanel() {
   const bottomRef  = useRef<HTMLDivElement>(null);
   const inputRef   = useRef<HTMLTextAreaElement>(null);
   const { startPTT, stopPTT } = useBrainVoice();
+  const { dispatch: agentDispatch } = useAgent();
+  const { addMessage } = useTStore();
 
   // When brain sends a transcript, auto-send it as a message
   const onTranscript = useCallback((text: string) => {
@@ -78,9 +80,39 @@ export function ChatPanel() {
 
   const handleSend = () => {
     if (!input.trim() || isTyping) return;
-    send(input);
+    const trimmed = input.trim();
     setInput("");
     inputRef.current?.focus();
+
+    // /run <task> triggers agent mode
+    if (trimmed.startsWith("/run ")) {
+      const task = trimmed.slice(5).trim();
+      if (!task) return;
+      addMessage("user", trimmed);
+      addMessage("assistant", `[AGENT] Task initiated: ${task}`);
+      agentDispatch(task, (e) => {
+        const label =
+          e.type === "agent_tool_start" ? `\n[→] Running ${e.tool}...` :
+          e.type === "agent_tool_done"  ? `\n[✓] ${e.tool}:\n${e.result ?? ""}` :
+          e.type === "agent_confirm"    ? `\n[!] ${e.message ?? ""}` :
+          e.type === "agent_done"       ? `\n\n${e.answer ?? ""}` :
+          e.type === "agent_error"      ? `\n[ERROR] ${e.error ?? ""}` : null;
+        if (!label) return;
+        useTStore.setState((s) => {
+          const msgs = [...s.messages];
+          for (let i = msgs.length - 1; i >= 0; i--) {
+            if (msgs[i].role === "assistant") {
+              msgs[i] = { ...msgs[i], content: msgs[i].content + label };
+              break;
+            }
+          }
+          return { messages: msgs };
+        });
+      });
+      return;
+    }
+
+    send(trimmed);
   };
 
   const handleKey = (e: React.KeyboardEvent) => {

@@ -189,3 +189,52 @@ export function useBrainMemory(): void {
     return unsub;
   }, [addBrainMemory]);
 }
+
+// Sends an agent task and streams back step events.
+export function useAgent() {
+  type AgentEvent = {
+    type:    string;
+    step?:   number;
+    text?:   string;
+    tool?:   string;
+    params?: Record<string, string>;
+    result?: string;
+    answer?: string;
+    error?:  string;
+    message?: string;
+  };
+
+  const dispatch = useCallback((
+    task:     string,
+    onEvent:  (e: AgentEvent) => void,
+  ): boolean => {
+    const id   = crypto.randomUUID();
+    const sent = bridge.send({ type: "agent", id, task });
+    if (!sent) return false;
+
+    const unsub = bridge.onMessage((msg: BrainMessage) => {
+      if (msg.id !== id) return;
+      const e: AgentEvent = { type: msg.type };
+      if (msg.step)    e.step    = msg.step   as number;
+      if (msg.text)    e.text    = msg.text   as string;
+      if (msg.tool)    e.tool    = msg.tool   as string;
+      if (msg.params)  e.params  = msg.params as Record<string, string>;
+      if (msg.result)  e.result  = msg.result as string;
+      if (msg.answer)  e.answer  = msg.answer as string;
+      if (msg.error)   e.error   = msg.error  as string;
+      if (msg.message) e.message = msg.message as string;
+      onEvent(e);
+      if (msg.type === "agent_done" || msg.type === "agent_error") {
+        unsub();
+      }
+    });
+
+    return true;
+  }, []);
+
+  const confirm = useCallback((confirmed: boolean) => {
+    bridge.send({ type: "agent_confirm_response", confirmed });
+  }, []);
+
+  return { dispatch, confirm };
+}

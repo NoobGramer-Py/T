@@ -14,28 +14,32 @@ log = get_logger("engine")
 
 _histories: dict[str, list[dict]] = {}
 _profiles:  dict[str, dict]       = {}
-_voice_active: set[str]           = set()   # client IDs with voice enabled
+_voice_active: set[str]           = set()
+# agent_confirm_response: client_id → asyncio.Future[bool]
+_pending_confirms: dict[str, asyncio.Future] = {}
 
 
 async def handle(client: "Client", raw: str) -> None:
-    """Entry point for every message received from a Tauri client."""
     try:
         msg = json.loads(raw)
     except json.JSONDecodeError:
         log.warning(f"invalid JSON from {client.id}: {raw[:80]}")
         return
 
-    msg_type = msg.get("type")
-
-    if   msg_type == "chat":          await _handle_chat(client, msg)
-    elif msg_type == "profile_sync":  await _handle_profile_sync(client, msg)
-    elif msg_type == "voice_start":   await _handle_voice_start(client)
-    elif msg_type == "voice_stop":    await _handle_voice_stop(client)
-    elif msg_type == "voice_enable":  _handle_voice_enable(client, msg)
-    elif msg_type == "ping":          await client.send({"type": "pong"})
+    t = msg.get("type")
+    if   t == "chat":                    await _handle_chat(client, msg)
+    elif t == "agent":                   await _handle_agent(client, msg)
+    elif t == "agent_confirm_response":  _handle_confirm_response(client, msg)
+    elif t == "profile_sync":            await _handle_profile_sync(client, msg)
+    elif t == "voice_start":             await _handle_voice_start(client)
+    elif t == "voice_stop":              await _handle_voice_stop(client)
+    elif t == "voice_enable":            _handle_voice_enable(client, msg)
+    elif t == "ping":                    await client.send({"type": "pong"})
     else:
-        log.warning(f"unknown message type '{msg_type}' from {client.id}")
+        log.warning(f"unknown message type '{t}' from {client.id}")
 
+
+# ─── Chat ──────────────────────────────────────────────────────────────────────
 
 async def _handle_chat(client: "Client", msg: dict) -> None:
     msg_id  = msg.get("id", "")
@@ -72,7 +76,6 @@ async def _handle_chat(client: "Client", msg: dict) -> None:
 
         asyncio.create_task(_extract_and_store(client, content, full_response, groq_key))
 
-        # Send TTS if voice is active for this client
         if client.id in _voice_active:
             from voice.pipeline import speak
             asyncio.create_task(speak(client, full_response))
@@ -82,6 +85,37 @@ async def _handle_chat(client: "Client", msg: dict) -> None:
         await client.send({"type": "chat_error", "id": msg_id, "error": str(e)})
         await client.send({"type": "visualizer", "mode": "idle"})
 
+
+# ─── Agent ─────────────────────────────────────────────────────────────────────
+
+async def _handle_agent(client: "Client", msg: dict) -> None:
+    msg_id = msg.get("id", "")
+    task   = msg.get("task", "").strip()
+    if not task:
+        return
+
+    profile  = _profiles.get(client.id, {})
+    log.info(f"agent task  client={client.id}  task={task!r}")
+
+    from agents.executor import run_agent
+    try:
+        answer = await run_agent(client, task, profile, msg_id)
+        # Add agent result to conversation history as an assistant message
+        history = _histories.setdefault(client.id, [])
+        history.append({"role": "user",      "content": f"[AGENT TASK] {task}"})
+        history.append({"role": "assistant",  "content": answer})
+    except Exception as e:
+        log.error(f"agent error: {e}")
+        await client.send({"type": "agent_error", "id": msg_id, "error": str(e)})
+
+
+def _handle_confirm_response(client: "Client", msg: dict) -> None:
+    fut = _pending_confirms.pop(client.id, None)
+    if fut and not fut.done():
+        fut.set_result(bool(msg.get("confirmed", False)))
+
+
+# ─── Voice ─────────────────────────────────────────────────────────────────────
 
 async def _handle_voice_start(client: "Client") -> None:
     from voice.pipeline import handle_voice_start
@@ -102,11 +136,10 @@ def _handle_voice_enable(client: "Client", msg: dict) -> None:
     log.info(f"voice {'enabled' if enabled else 'disabled'}  client={client.id}")
 
 
+# ─── Memory ────────────────────────────────────────────────────────────────────
+
 async def _extract_and_store(
-    client:        "Client",
-    user_msg:      str,
-    assistant_msg: str,
-    groq_key:      str,
+    client: "Client", user_msg: str, assistant_msg: str, groq_key: str,
 ) -> None:
     try:
         facts = await extract(user_msg, assistant_msg, groq_key=groq_key)
@@ -118,6 +151,8 @@ async def _extract_and_store(
         log.warning(f"memory extraction error: {e}")
 
 
+# ─── Profile ───────────────────────────────────────────────────────────────────
+
 async def _handle_profile_sync(client: "Client", msg: dict) -> None:
     data = msg.get("data", {})
     _profiles[client.id] = data
@@ -125,9 +160,14 @@ async def _handle_profile_sync(client: "Client", msg: dict) -> None:
     await client.send({"type": "profile_ack"})
 
 
+# ─── Cleanup ───────────────────────────────────────────────────────────────────
+
 def on_disconnect(client_id: str) -> None:
     _histories.pop(client_id, None)
     _profiles.pop(client_id, None)
     _voice_active.discard(client_id)
+    fut = _pending_confirms.pop(client_id, None)
+    if fut and not fut.done():
+        fut.cancel()
     from voice.pipeline import cleanup
     cleanup(client_id)
