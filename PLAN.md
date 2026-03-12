@@ -288,6 +288,124 @@ All messages over WebSocket are JSON with this shape:
 
 ---
 
+## Phase 8 — Offensive & Defensive Security (Full Spectrum)
+
+**Goal**: T has every attack and defense capability. Nothing executes without explicit user confirmation.
+
+### Confirmation Model
+Every offensive action follows this exact flow — no exceptions:
+```
+T describes the action in plain English + shows exact command to be run
+→ Single confirmation prompt in ChatPanel: "Confirm? [YES / NO]"
+→ User types YES
+→ Action executes, output streamed to SecurityPanel
+→ Action logged to security_log table with timestamp, target, command, result
+```
+T never chains offensive actions without re-confirming each step.
+
+### Architecture
+```
+SecurityPanel.tsx
+    ↓
+brain/offensive/orchestrator.py   ← plans, confirms, dispatches
+    ├── src-tauri/commands/security.rs     (Windows-native execution)
+    ├── brain/offensive/vm_bridge.py       (Linux VM via SSH)
+    └── brain/offensive/stream.py          (streams stdout back to HUD)
+```
+
+### VirtualBox / Linux VM Integration
+T controls the Linux VM via `VBoxManage` (VM lifecycle) + SSH (command execution).
+
+**One-time user setup required:**
+1. Enable SSH on VM: `sudo apt install openssh-server && sudo systemctl enable ssh`
+2. Set VM network to Host-Only Adapter in VirtualBox → VM gets fixed IP (e.g. `192.168.56.101`)
+3. On Windows host: generate SSH key → `ssh-keygen -t ed25519`
+4. Copy public key to VM → `ssh-copy-id user@192.168.56.101`
+5. In T Settings: enter VM name (exact VirtualBox name), VM IP, SSH user, SSH key path
+
+**What T can then do:**
+- Start / stop / snapshot the VM
+- SSH in and run any command with streamed output
+- Install tools after confirmation: `sudo apt install <tool> -y`
+- Auto-detect if a required tool is missing, offer to install it
+
+**New Settings fields (SettingsPanel.tsx):**
+```
+vm_name        → VirtualBox VM name (e.g. "Kali-Linux")
+vm_ip          → Fixed IP (e.g. "192.168.56.101")
+vm_ssh_user    → SSH username
+vm_ssh_key     → Path to private key on Windows host
+```
+
+### Files to Add
+
+**Python:**
+```
+brain/offensive/
+├── orchestrator.py      ← receives action requests, handles confirmation flow
+├── vm_bridge.py         ← VBoxManage + SSH client, streams output
+├── stream.py            ← pipes subprocess stdout over WebSocket to HUD
+└── tool_check.py        ← checks if a tool exists on VM, offers install
+```
+
+**Rust (src-tauri/src/commands/security.rs additions):**
+- `credential_dump` — Windows LSASS memory read via Windows API
+- `inject_analysis` — detect process injection (hollowing, DLL injection)
+- `raw_packet_capture` — Windows raw socket capture (requires elevated)
+- `arp_table` — read/manipulate ARP table
+
+**TypeScript:**
+- `src/lib/bridge.ts` — add `sendOffensiveAction(action, params)` + `onOffensiveStream(cb)`
+- `src/components/security/SecurityPanel.tsx` — add offensive tabs (see below)
+
+### Full Capability Map
+
+| Capability | Executor | Tool | Location |
+|---|---|---|---|
+| Port scan (fast/full) | Rust | nmap | security.rs (exists) |
+| Service fingerprinting | Rust | nmap -sV | security.rs |
+| OS detection | Rust | nmap -O | security.rs |
+| Vuln scan | Rust | nmap --script vuln | security.rs |
+| Password hash cracking | VM | hashcat | vm_bridge.py |
+| Online brute force | VM | hydra | vm_bridge.py |
+| WiFi handshake capture | VM | hcxdumptool | vm_bridge.py |
+| WPA cracking | VM | hashcat (mode 22000) | vm_bridge.py |
+| WiFi deauth | VM | aireplay-ng | vm_bridge.py |
+| Exploitation | VM | Metasploit msfconsole | vm_bridge.py |
+| Payload generation | VM | msfvenom | vm_bridge.py |
+| Reverse shell listener | VM | Metasploit multi/handler | vm_bridge.py |
+| Packet capture | VM | tcpdump / tshark | vm_bridge.py |
+| MITM (ARP poison) | VM | arpspoof + ettercap | vm_bridge.py |
+| SSL strip | VM | sslstrip | vm_bridge.py |
+| Web app scan | VM | nikto / sqlmap | vm_bridge.py |
+| Fuzzing | VM | ffuf / wfuzz | vm_bridge.py |
+| Steganography | VM | steghide / stegsolve | vm_bridge.py |
+| Credential dump (Win) | Rust | Windows API (LSASS) | security.rs |
+| Process injection detect | Rust | Windows API | security.rs |
+| Packet capture (Win) | Rust | raw sockets | security.rs |
+| OSINT (expanded) | Python | shodan + theHarvester | offensive/orchestrator.py |
+
+### New SecurityPanel Tabs
+Current tabs: NMAP, IP REP, IP INTEL, PORT SCAN, EMAIL OSINT, CVE, PORTS, AUDIT, DNS LEAK, VPN, FIREWALL, PASSWORD, URL SCAN, EVENT LOG
+
+Add:
+- `CRACK` — hash input + wordlist selection → hashcat/john via VM
+- `EXPLOIT` — Metasploit module browser + payload generator
+- `WIFI` — interface selection, handshake capture, deauth, WPA crack
+- `MITM` — ARP poison setup, SSL strip toggle, traffic capture
+- `PAYLOAD` — msfvenom wrapper, shellcode generator
+- `VM` — VM status, start/stop, SSH terminal (embedded), tool installer
+
+### Key Rules (locked)
+1. **Every single offensive action requires YES confirmation** — no batching, no auto-chaining
+2. **T describes what it will do before asking** — plain English + exact command shown
+3. **All actions are logged** — target, command, timestamp, result → security_log table
+4. **VM tools install only after confirmation** — T asks "hashcat not found on VM. Install it? [YES/NO]"
+5. **T never initiates offensive actions proactively** — proactive engine is blocked from offensive module
+6. **Elevated actions on Windows** — T warns when a command requires admin and explains why
+
+---
+
 ## Development Notes
 
 - `node_modules/`, `src-tauri/target/`, `brain/data/` are gitignored
