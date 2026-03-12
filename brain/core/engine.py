@@ -1,5 +1,6 @@
 import json
 import asyncio
+import re
 from typing import TYPE_CHECKING
 from .llm import chat
 from .logger import get_logger
@@ -15,8 +16,131 @@ log = get_logger("engine")
 _histories: dict[str, list[dict]] = {}
 _profiles:  dict[str, dict]       = {}
 _voice_active: set[str]           = set()
-# agent_confirm_response: client_id → asyncio.Future[bool]
 _pending_confirms: dict[str, asyncio.Future] = {}
+
+
+# ─── Integration intent detection ─────────────────────────────────────────────
+
+def _detect_integration(content: str) -> tuple[str, dict] | None:
+    """
+    Detect if a chat message is a direct integration request.
+    Returns (integration_type, params) or None if it's a regular chat message.
+    Fast keyword matching — no LLM call needed.
+    """
+    c = content.lower().strip()
+
+    # Weather
+    weather_m = re.search(
+        r"weather\s+(?:in|for|at|of)?\s*(.+)|"
+        r"(?:what(?:'s| is) it like|temperature|forecast)\s+(?:in|for|at)?\s*(.+)",
+        c, re.IGNORECASE
+    )
+    if weather_m:
+        loc = (weather_m.group(1) or weather_m.group(2) or "").strip().rstrip("?.")
+        if loc:
+            return ("weather", {"location": loc})
+
+    # News
+    if re.search(r"(latest|recent|today'?s?|current|breaking)\s+(news|headlines)", c) or \
+       re.search(r"news\s+(about|on|regarding)\s+(.+)", c):
+        news_m = re.search(r"news\s+(?:about|on|regarding)\s+(.+)", c)
+        topic  = news_m.group(1).rstrip("?.") if news_m else ""
+        return ("news", {"topic": topic})
+
+    # Web search
+    search_m = re.search(
+        r"(?:search|look up|google|find|search for)\s+(?:for\s+)?(.+)", c, re.IGNORECASE
+    )
+    if search_m:
+        query = search_m.group(1).rstrip("?.")
+        return ("search", {"query": query})
+
+    # Fetch URL
+    url_m = re.search(r"(?:fetch|open|read|get|scrape)\s+(https?://\S+)", c, re.IGNORECASE)
+    if url_m:
+        return ("fetch_url", {"url": url_m.group(1)})
+
+    # Launch app
+    launch_m = re.search(
+        r"(?:open|launch|start|run)\s+(?:up\s+)?([a-zA-Z0-9 +-]+?)(?:\s+(?:for me|please|now))?$",
+        c, re.IGNORECASE
+    )
+    if launch_m:
+        app_name = launch_m.group(1).strip()
+        # Avoid matching "open http://..." (that's fetch_url) or very short strings
+        if len(app_name) >= 2 and not app_name.startswith("http"):
+            known_apps = {
+                "chrome", "firefox", "edge", "vscode", "vs code", "notepad",
+                "terminal", "calculator", "explorer", "file explorer", "spotify",
+                "discord", "steam", "vlc", "obs", "wireshark", "burpsuite",
+                "powershell", "cmd", "paint", "task manager",
+            }
+            if app_name.lower() in known_apps:
+                return ("launch_app", {"name": app_name})
+
+    # System info
+    if re.search(r"(system|machine|pc|computer)\s+(info|information|specs|details|status)", c):
+        return ("system_info", {})
+
+    # Screenshot
+    if re.search(r"(take|grab|capture)\s+(?:a\s+)?screenshot", c):
+        return ("screenshot", {})
+
+    # Clipboard read
+    if re.search(r"(what('s| is) (?:in |on )?(?:my )?clipboard|read clipboard|get clipboard)", c):
+        return ("get_clipboard", {})
+
+    return None
+
+
+async def _handle_integration(client: "Client", msg_id: str, kind: str, params: dict) -> bool:
+    """
+    Handle a detected integration request directly.
+    Returns True if handled, False if should fall through to LLM.
+    """
+    try:
+        from integrations.web import web_search, get_weather, fetch_url, get_news
+        from integrations.system_control import (
+            launch_app, get_clipboard, get_system_info, take_screenshot
+        )
+
+        if kind == "weather":
+            result = await get_weather(params["location"])
+        elif kind == "news":
+            result = await get_news(params.get("topic", ""))
+        elif kind == "search":
+            result = await web_search(params["query"])
+        elif kind == "fetch_url":
+            result = await fetch_url(params["url"])
+        elif kind == "launch_app":
+            result = await launch_app(params["name"])
+        elif kind == "system_info":
+            result = await get_system_info()
+        elif kind == "screenshot":
+            result = await take_screenshot()
+        elif kind == "get_clipboard":
+            result = await get_clipboard()
+        else:
+            return False
+
+        # Stream result as chat chunks
+        # Chunk by line so it streams naturally
+        lines = result.split("\n")
+        for i, line in enumerate(lines):
+            chunk = line + ("\n" if i < len(lines) - 1 else "")
+            await client.send({"type": "chat_chunk", "id": msg_id, "chunk": chunk})
+
+        await client.send({"type": "chat_done", "id": msg_id, "provider": "integration"})
+        await client.send({"type": "visualizer", "mode": "speaking"})
+
+        history = _histories.setdefault(client.id, [])
+        history.append({"role": "assistant", "content": result})
+
+        return True
+
+    except Exception as e:
+        log.warning(f"integration handler error kind={kind}: {e}")
+        return False
 
 
 async def handle(client: "Client", raw: str) -> None:
@@ -42,8 +166,8 @@ async def handle(client: "Client", raw: str) -> None:
 # ─── Chat ──────────────────────────────────────────────────────────────────────
 
 async def _handle_chat(client: "Client", msg: dict) -> None:
-    msg_id  = msg.get("id", "")
-    content = msg.get("content", "").strip()
+    msg_id   = msg.get("id", "")
+    content  = msg.get("content", "").strip()
     if not content:
         return
 
@@ -52,12 +176,30 @@ async def _handle_chat(client: "Client", msg: dict) -> None:
     if len(history) > 40:
         _histories[client.id] = history[-40:]
 
-    profile    = _profiles.get(client.id, {})
-    groq_key   = profile.get("groqKey", "")
-    memory_ctx = build_context(content, profile)
+    profile  = _profiles.get(client.id, {})
+    groq_key = profile.get("groqKey", "")
 
     await client.send({"type": "visualizer", "mode": "listening"})
 
+    # Try direct integration handler first (weather, search, news, app launch, etc.)
+    integration = _detect_integration(content)
+    if integration:
+        kind, params = integration
+        log.info(f"integration detected  kind={kind}  params={params}")
+        handled = await _handle_integration(client, msg_id, kind, params)
+        if handled:
+            if client.id in _voice_active:
+                last = next(
+                    (m["content"] for m in reversed(history) if m["role"] == "assistant"),
+                    None,
+                )
+                if last:
+                    from voice.pipeline import speak
+                    asyncio.create_task(speak(client, last))
+            return
+
+    # LLM path
+    memory_ctx    = build_context(content, profile)
     full_response = ""
     used_provider = "groq"
     try:
