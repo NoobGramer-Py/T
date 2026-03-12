@@ -97,6 +97,10 @@ async def tool_probe_login(
     from agents.web_attack import probe_login
     return await probe_login(url, username_field, password_field, username, password, extra_fields)
 
+async def tool_wordpress_user_enum(base_url: str, **_) -> str:
+    from agents.web_attack import wordpress_user_enum
+    return await wordpress_user_enum(base_url)
+
 async def tool_sql_injection_login(
     url: str, username_field: str, password_field: str, **_
 ) -> str:
@@ -254,6 +258,12 @@ TOOLS: dict[str, Tool] = {
             "extra_fields":   "JSON of additional fields e.g. CSRF token: {\"_token\": \"abc\"}",
         },
         fn=tool_probe_login,
+    ),
+    "wordpress_user_enum": Tool(
+        name="wordpress_user_enum",
+        description="WordPress-specific: enumerate valid usernames via REST API, author archives, and login error messages. Run this before brute forcing a WordPress login — valid usernames make attacks far more efficient.",
+        params={"base_url": "WordPress site base URL or wp-login.php URL"},
+        fn=tool_wordpress_user_enum,
     ),
     "sql_injection_login": Tool(
         name="sql_injection_login",
