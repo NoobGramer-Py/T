@@ -298,80 +298,64 @@ Tauri displays these as non-blocking notifications in the chat panel (different 
 ---
 
 ### Phase 6b — Live System Access (Host Device)
-**Goal**: T escalates its own privileges on Abdul's machine and gains live access to protected
-system resources — credential stores, process memory, registry, SAM database, running sessions.
-Every action is read-only by default. Nothing modifies, nothing persists, nothing exposes the host.
-
-#### What This Is
-T performs local privilege escalation and live system introspection on its own host machine.
-This is for Abdul to:
-- Retrieve his own stored credentials without needing external tools
-- Inspect running processes at memory level
-- Access protected system areas (SAM, LSASS, registry hives)
-- Understand exactly what is exposed on his own machine
-
-This is NOT:
-- A backdoor or persistent implant
-- A network-facing capability (no outbound connections from this module)
-- An auto-executing feature (every single action requires explicit YES confirmation)
+**Goal**: T escalates its own privileges on Abdul's machine and gains live access to all
+credential stores and process memory. Results appear as a summary in chat and full output
+in a dedicated Security panel tab. Everything is read-only. Nothing persists. Host stays clean.
 
 ---
 
-#### Safety Model — Non-Negotiable Rules
-These rules are hardcoded at the implementation level, not just policy:
+#### Decisions — Locked
+
+| Decision | Choice |
+|---|---|
+| Elevation method | Separate elevated helper process — brain stays running, no offline period |
+| Display | Summary in chat + full output in Security panel LOCAL ACCESS tab |
+| Extraction trigger | All sources at once — one YES confirms the full run |
+| Credential sources | All 8 — LSASS, SAM, Credential Manager, Browser, WiFi, Env vars, Scheduled tasks, Registry |
+| Hash cracking | Pipe NTLM hashes directly to VM hashcat after extraction |
+| Save output | Yes — offer encrypted file export after display |
+| Defender mid-operation | Auto-fallback to alternative method, report which method was used |
+| Process memory inspector | Included — read arbitrary process memory by PID, string search for tokens/passwords |
+| Session expiry | No auto-expiry — session lasts until Abdul ends it manually |
+| Kill switch | Both chat command (`end session`) and UI button in Security panel |
+
+---
+
+#### Safety Model — Hardcoded, Non-Negotiable
 
 **1. Read-Only by Default**
-Every operation reads data only. No files written, no registry keys modified, no processes
-injected. The only exception is a temporary dump file written to `%TEMP%\T_dump_<timestamp>.bin`
-which is automatically deleted within 60 seconds of creation.
+No files written, no registry modified, no processes injected or terminated.
+Temp dump files written only to `%TEMP%\T_<timestamp>.bin`, encrypted with session key,
+auto-deleted within 60 seconds of parsing. Session key lives in memory only.
 
-**2. Confirmation Gate — Triple Layer**
+**2. Single Confirmation Gate**
 ```
-Layer 1: T describes the action in plain English + shows exact command
-Layer 2: Risk assessment shown — what this touches, what it reads, what could go wrong
-Layer 3: User types YES (not a button click — must be typed) → action executes
+T describes every source it will hit + exact method for each
+T shows the risk for each source in plain English
+Abdul types YES → full extraction runs
 ```
-No batching. Each individual action goes through all three layers.
+One confirmation covers the entire run. No per-source interruptions.
 
 **3. No Network Exposure**
-The live access module has a firewall check at startup:
-- Verifies Windows Firewall is active before proceeding
-- All extracted data stays in memory only — never written to disk except temp files
-- Temp files are encrypted with a session key that lives only in memory
-- No data is sent over the WebSocket except the formatted text summary shown to Abdul
+Firewall check runs before session start. Extracted data never leaves the helper process
+as raw binary — only as formatted text sent over the local WebSocket to Tauri.
+The encrypted save file is written locally only, never transmitted.
 
-**4. Automatic Session Expiry**
-Any elevated session expires automatically after 10 minutes of inactivity.
-T notifies Abdul 2 minutes before expiry and drops privileges on timeout.
-Expiry is enforced in code — not just a suggestion.
+**4. Manual Session Control**
+Session persists until Abdul ends it. No auto-expiry.
+Kill switch (`end session` in chat OR button in Security panel) instantly:
+- Terminates elevated helper process
+- Deletes all temp files from `%TEMP%`
+- Clears extracted data from memory
+- Reverts to normal brain operation
+- Confirms completion to Abdul in chat
 
-**5. No Persistence**
-Nothing installed, nothing scheduled, no registry Run keys touched.
-T's elevated access is a transient token that lives only for the duration of the operation.
-
-**6. Integrity Check Before Every Operation**
-Before executing any privileged operation, T checks:
-- Is Windows Defender / AV running? If not → warn and ask if Abdul wants to proceed
-- Are any network connections currently active to unknown IPs? → log and warn
-- Is the Tauri process the parent? → verify chain of custody
-If any check fails → halt and report, do not proceed without explicit re-confirmation.
-
----
-
-#### Capability Map
-
-| Capability | Method | Safety Level | What It Touches |
-|---|---|---|---|
-| UAC bypass (self-elevation) | fodhelper / eventvwr bypass | Read setup only | Windows registry (read) |
-| LSASS memory read | MiniDump via comsvcs.dll | Temp file, auto-deleted | LSASS process memory |
-| SAM + SYSTEM hive extract | reg save to temp | Temp files, auto-deleted | HKLM\SAM, HKLM\SYSTEM |
-| Credential Manager dump | cmdkey + PowerShell | Read only | Windows Vault |
-| Running session tokens | token impersonation check | Read only | Process token table |
-| Registry credential scan | reg query on known paths | Read only | HKLM, HKCU credential paths |
-| Browser credential extract | path-based file read | Read only | Chrome/Firefox profile dirs |
-| WiFi password extract | netsh wlan show profiles | Read only | Windows WLAN service |
-| Environment credential scan | process env vars | Read only | Running process memory |
-| Scheduled task inspection | schtasks /query | Read only | Task Scheduler |
+**5. Integrity Check Before Session Start**
+Before UAC prompt appears, T checks:
+- Windows Firewall active on all profiles → if off, warn + ask to proceed
+- No suspicious outbound connections → if found, list them + ask to proceed
+- AV running → if not, warn (but do not block — Abdul may have disabled it intentionally)
+All checks are informational warnings, not hard blocks (Abdul is the authority).
 
 ---
 
@@ -380,54 +364,136 @@ If any check fails → halt and report, do not proceed without explicit re-confi
 ```
 brain/local_access/
 ├── __init__.py
-├── orchestrator.py     ← entry point, safety checks, confirmation flow, session manager
-├── escalation.py       ← UAC bypass, token manipulation, admin check
-├── credential.py       ← LSASS, SAM, Credential Manager, browser, WiFi
-├── inspection.py       ← process tokens, scheduled tasks, registry scan, env vars
-├── safety.py           ← firewall check, AV check, integrity verification, temp cleanup
-└── session.py          ← elevated session lifecycle, 10min expiry, privilege drop
+├── orchestrator.py     ← receives local_access message, runs safety checks,
+│                          confirmation flow, launches helper, streams results
+├── helper.py           ← runs as elevated subprocess, performs all privileged ops,
+│                          communicates back to orchestrator via encrypted pipe
+├── escalation.py       ← spawns helper.py via ShellExecuteEx runas (standard UAC prompt)
+│                          chooses helper vs brain-restart based on stability check
+├── credential.py       ← all extraction logic: LSASS, SAM, browser, WiFi, env, registry
+├── memory_inspector.py ← live process memory read by PID, string/pattern search
+├── safety.py           ← firewall check, AV check, connection scan, temp cleanup,
+│                          temp file encryption/decryption
+└── session.py          ← session state, kill switch handler, encrypted file export
 ```
 
-#### orchestrator.py
-- Receives action requests from engine.py via new message type `local_access`
-- Runs safety.py integrity checks first — aborts if any fail
-- Runs triple-confirmation flow before any action
-- Manages the elevated session lifecycle via session.py
-- Streams results back to Tauri as `local_access_result` messages
-- Logs every action to `brain/data/local_access.log` (local only, never synced)
+---
 
-#### escalation.py
-- `check_elevation()` → is current process already admin?
-- `request_elevation()` → re-launch brain with admin rights via standard UAC prompt (visible Windows dialog — clean, no bypass)
-- `get_system_token()` → impersonate SYSTEM via token duplication from a SYSTEM process
+#### Elevation — Separate Helper Process
 
-#### credential.py
-- `dump_lsass()` → MiniDump via comsvcs.dll → parse with pypykatz → return credential dict → delete dump
-- `extract_sam()` → reg save SAM + SYSTEM to temp → extract hashes via impacket → delete temp files
-- `dump_credential_manager()` → PowerShell `Get-StoredCredential` or cmdkey → parse → return
-- `extract_browser_creds(browser)` → read Chrome/Edge/Firefox encrypted credential DBs → decrypt with DPAPI
-- `extract_wifi_passwords()` → netsh wlan → return SSID + password pairs
-- `scan_registry_creds()` → query known credential storage paths in registry
+Brain spawns `helper.py` as an elevated subprocess via `ShellExecuteEx` with `runas` verb.
+Windows shows the standard UAC dialog. Abdul clicks Yes.
+Brain stays running and connected to Tauri throughout — no WebSocket drop.
 
-#### inspection.py
-- `list_session_tokens()` → enumerate process tokens, flag high-privilege ones
-- `scan_env_credentials()` → check running processes' environment for API keys, passwords, tokens
-- `inspect_scheduled_tasks()` → list tasks with credentials or unusual paths
-- `scan_startup_items()` → registry Run keys, startup folder — flag suspicious entries
+Communication channel: named pipe (`\\.\pipe\T_local_access_<session_id>`)
+- Pipe is created by brain before helper launch
+- Helper connects to pipe after elevation
+- All data flows through pipe as encrypted JSON
+- Pipe key is generated per-session, lives only in brain memory
 
-#### safety.py
-- `check_firewall()` → verify Windows Firewall is active on all profiles
-- `check_av()` → verify Defender or AV is running
-- `verify_parent_chain()` → confirm Tauri → brain process lineage
-- `check_active_connections()` → netstat for suspicious outbound connections
-- `cleanup_temp()` → delete all T_dump_* files from %TEMP%
-- `encrypt_temp(data, key)` / `decrypt_temp(path, key)` → session-keyed temp file encryption
+This is safer and more stable than restarting brain because:
+- WebSocket connection to Tauri stays alive — no reconnect delay
+- Chat history preserved — Abdul can keep talking while extraction runs
+- Helper process isolated — if it crashes, brain continues normally
+- Principle of least privilege — only helper.py runs as admin, not the entire brain
 
-#### session.py
-- `ElevatedSession` class — context manager
-- On enter: escalate, log start time, start expiry timer
-- On exit: drop to original token, cleanup temp files, log end time
-- `expire()` → called after 10min inactivity, force-drops privileges, notifies Abdul
+---
+
+#### Credential Sources — All 8
+
+**LSASS** — `credential.py: dump_lsass()`
+Primary method: `comsvcs.dll MiniDump` via rundll32 → parse with pypykatz → delete dump
+Fallback (if Defender blocks): `NtReadVirtualMemory` direct API call via ctypes → parse in-memory
+Second fallback: `ProcDump` if available on system
+Returns: plaintext passwords (if cached), NTLM hashes, Kerberos tickets
+
+**SAM Database** — `credential.py: extract_sam()`
+Method: `reg save HKLM\SAM` + `reg save HKLM\SYSTEM` to temp → parse with impacket secretsdump → delete temp
+Returns: local account NTLM hashes
+
+**Windows Credential Manager** — `credential.py: dump_credential_manager()`
+Method: `vaultcmd /listcreds` + PowerShell `Get-StoredCredential` + direct Vault API via ctypes
+Returns: stored usernames, passwords, URLs, certificate credentials
+
+**Browser Saved Passwords** — `credential.py: extract_browser_creds()`
+Chrome/Edge: read `Login Data` SQLite DB → decrypt with DPAPI (`CryptUnprotectData`) → parse
+Firefox: read `logins.json` + `key4.db` → decrypt with NSS library or pure Python mozillapassword
+Returns: URL, username, plaintext password for each entry
+
+**WiFi Passwords** — `credential.py: extract_wifi()`
+Method: `netsh wlan show profiles` → for each SSID: `netsh wlan show profile name=X key=clear`
+Returns: SSID + plaintext WPA key for every saved network
+
+**Environment Variables** — `credential.py: scan_env_vars()`
+Method: enumerate all running processes via WMI → read each process's environment block
+Filter for known patterns: `API_KEY`, `SECRET`, `PASSWORD`, `TOKEN`, `PASSWD`, `PWD`, `KEY`
+Returns: process name, variable name, value for each hit
+
+**Scheduled Tasks** — `credential.py: inspect_scheduled_tasks()`
+Method: `schtasks /query /fo LIST /v` → parse for RunAs credentials, embedded passwords
+Returns: task name, run-as user, command, any embedded credentials found
+
+**Registry Credential Paths** — `credential.py: scan_registry()`
+Queries known paths:
+- `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon` (DefaultPassword)
+- `HKCU\Software\SimonTatham\PuTTY\Sessions` (SSH saved sessions)
+- `HKLM\SYSTEM\CurrentControlSet\Services` (service account passwords)
+- `HKCU\Software\ORL\WinVNC3` (VNC passwords)
+- `HKCU\Software\TightVNC\Server` (VNC passwords)
+- `HKLM\SOFTWARE\RealVNC\WinVNC4` (VNC passwords)
+Returns: registry path, value name, decrypted value
+
+---
+
+#### Process Memory Inspector — `memory_inspector.py`
+
+`inspect_process(pid, patterns)`
+- Opens process handle with `PROCESS_VM_READ` via ctypes
+- Enumerates memory regions via `VirtualQueryEx`
+- Reads readable regions via `ReadProcessMemory`
+- Searches for patterns: regex list supplied by Abdul or predefined (passwords, tokens, keys)
+- Returns matching strings with surrounding context (50 chars each side)
+
+`search_all_processes(pattern)`
+- Runs `inspect_process` across all running processes
+- Skips System, Idle, and protected processes gracefully
+- Returns hits grouped by process name + PID
+
+Predefined search patterns:
+- `password\s*[:=]\s*\S+`
+- `token\s*[:=]\s*[A-Za-z0-9+/]{20,}`
+- `api[_-]?key\s*[:=]\s*\S+`
+- `Bearer [A-Za-z0-9\-._~+/]+=*`
+- `Authorization: [^\r\n]+`
+
+---
+
+#### Hash Cracking Pipeline
+
+After SAM/LSASS extraction, if NTLM hashes are found:
+1. T displays hashes in Security panel immediately
+2. T sends hashes to VM via `vm_bridge.py` (Phase 8 — if VM is configured)
+3. If VM not configured: T generates the hashcat command for Abdul to run manually:
+   ```
+   hashcat -m 1000 -a 0 hashes.txt rockyou.txt --show
+   ```
+4. Results stream back to Security panel via existing vm_bridge stream
+
+---
+
+#### Encrypted File Export
+
+After extraction completes, T offers:
+```
+T: Extraction complete. Save to encrypted file?
+Abdul: yes
+T: Saved to C:\Users\abdul\Desktop\T_extract_<timestamp>.enc
+   Password: <32-char random password shown once in chat>
+   Decrypt: openssl enc -d -aes-256-cbc -in T_extract.enc -out T_extract.txt
+```
+
+Encryption: AES-256-CBC via Python `cryptography` library
+Password: 32-char random, shown once in chat, never stored anywhere
 
 ---
 
@@ -435,44 +501,85 @@ brain/local_access/
 
 ```json
 // Tauri → Brain
-{"type": "local_access", "action": "dump_credentials", "id": "uuid"}
+{"type": "local_access_start", "id": "uuid"}
 {"type": "local_access_confirm", "id": "uuid", "confirmed": true}
+{"type": "local_access_end"}
+{"type": "memory_inspect", "id": "uuid", "pid": 1234, "pattern": "password"}
 
 // Brain → Tauri
-{"type": "local_access_check", "id": "uuid", "action": "dump_lsass",
- "description": "Read LSASS process memory to extract cached credentials",
- "risk": "Requires SYSTEM token. Temp dump file created then deleted. AV may flag.",
- "command": "rundll32 C:\\Windows\\System32\\comsvcs.dll MiniDump <lsass_pid> %TEMP%\\T_dump.bin full"}
-{"type": "local_access_result", "id": "uuid", "data": "...formatted credential output..."}
-{"type": "local_access_error", "id": "uuid", "error": "AV is not running — aborting for safety"}
-{"type": "local_access_expired", "message": "Elevated session expired after 10min inactivity"}
+{"type": "local_access_ready", "id": "uuid",
+ "sources": ["LSASS","SAM","CredManager","Browsers","WiFi","EnvVars","ScheduledTasks","Registry"],
+ "risk_summary": "Requires admin. LSASS dump may trigger AV — fallback ready. All temp files auto-deleted."}
+{"type": "local_access_progress", "id": "uuid", "source": "LSASS", "status": "running|done|fallback|failed"}
+{"type": "local_access_summary", "id": "uuid", "chat_summary": "Found 12 credentials across 5 sources"}
+{"type": "local_access_full", "id": "uuid", "data": "...full formatted output for Security panel..."}
+{"type": "local_access_hashes", "id": "uuid", "hashes": ["aad3b...", "31d6c..."]}
+{"type": "local_access_ended", "message": "Session ended. All temp files deleted."}
+{"type": "memory_inspect_result", "id": "uuid", "hits": [...]}
 ```
 
 ---
 
-#### Dependencies to Add (brain/requirements.txt)
+#### New UI — Security Panel LOCAL ACCESS Tab
+
 ```
-pypykatz>=0.6.9        ← parse LSASS dumps — pure Python, no native deps
+┌─ LOCAL ACCESS ──────────────────────────────────────────────┐
+│  [START SESSION]                           [END SESSION ■]  │
+│  Status: ● Active / ○ Idle                                  │
+│                                                             │
+│  ┌─ Sources ──────────────────────────────────────────────┐ │
+│  │ ✓ LSASS        ✓ SAM           ✓ CredManager          │ │
+│  │ ✓ Browsers     ✓ WiFi          ✓ EnvVars               │ │
+│  │ ✓ Sched.Tasks  ✓ Registry                              │ │
+│  └────────────────────────────────────────────────────────┘ │
+│                                                             │
+│  [EXTRACT ALL]   [INSPECT PROCESS]   [SAVE ENCRYPTED]      │
+│                                                             │
+│  ┌─ Results ──────────────────────────────────────────────┐ │
+│  │ (full extraction output streamed here)                 │ │
+│  └────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+```
+
+`[END SESSION ■]` button = kill switch — same effect as typing `end session` in chat.
+
+---
+
+#### Dependencies to Add
+
+```
+pypykatz>=0.6.9        ← LSASS dump parsing — pure Python
 impacket>=0.12.0       ← SAM/SYSTEM hash extraction
-pywin32>=306           ← Windows token manipulation (Windows only)
+pywin32>=306           ← Windows token/process APIs
+cryptography>=42.0.0   ← AES-256 encrypted file export (already may be installed)
 ```
+
+---
 
 #### Files to Build
+
 - [ ] `brain/local_access/__init__.py`
 - [ ] `brain/local_access/orchestrator.py`
+- [ ] `brain/local_access/helper.py`
 - [ ] `brain/local_access/escalation.py`
 - [ ] `brain/local_access/credential.py`
-- [ ] `brain/local_access/inspection.py`
+- [ ] `brain/local_access/memory_inspector.py`
 - [ ] `brain/local_access/safety.py`
 - [ ] `brain/local_access/session.py`
-- [ ] `brain/core/engine.py` — add `local_access` and `local_access_confirm` message handlers
-- [ ] `brain/requirements.txt` — add pypykatz, impacket, pywin32
-- [ ] `src/hooks/useBridge.ts` — handle `local_access_check`, `local_access_result`, `local_access_expired`
-- [ ] `src/components/chat/ChatPanel.tsx` — render confirmation flow + results for local_access
+- [ ] `brain/core/engine.py` — add `local_access_start`, `local_access_confirm`, `local_access_end`, `memory_inspect` handlers
+- [ ] `brain/requirements.txt` — add pypykatz, impacket, pywin32, cryptography
+- [ ] `src/hooks/useBridge.ts` — handle all local_access message types
+- [ ] `src/components/security/SecurityPanel.tsx` — add LOCAL ACCESS tab
+- [ ] `src-tauri/tauri.conf.json` — no new permissions needed (helper runs separately)
 
-**Done when**: Abdul says "dump credentials from this machine" → T shows what it will do → Abdul types YES → T extracts cached credentials from LSASS, Credential Manager, browsers, WiFi → displays them in chat → all temp files deleted → session expires.
+**Done when**: Abdul says "extract credentials" → T shows what it will hit → Abdul types YES →
+UAC prompt appears → Abdul clicks Yes → helper runs → LSASS/SAM/browsers/WiFi/etc extracted →
+summary in chat, full output in Security panel → NTLM hashes piped to VM hashcat →
+Abdul types `end session` or clicks ■ → all temp files deleted → session closed.
 
 ---
+
+
 
 
 **Goal**: T controls physical devices.
