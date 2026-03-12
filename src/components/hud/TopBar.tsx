@@ -1,4 +1,5 @@
 import { useTStore } from "../../store";
+import { useBrainStatus } from "../../hooks/useBridge";
 
 function Bar({ value, color }: { value: number; color: string }) {
   return (
@@ -26,10 +27,14 @@ function formatUptime(secs: number): string {
 
 export function TopBar() {
   const { stats, provider, voiceEnabled, setVoiceEnabled, voiceListening } = useTStore();
+  const brainStatus = useBrainStatus();
 
   const cpuColor  = stats.cpuPercent  > 80 ? "#ff4400" : stats.cpuPercent  > 60 ? "#ffb300" : "#ffe566";
   const ramColor  = stats.ramPercent  > 80 ? "#ff4400" : stats.ramPercent  > 60 ? "#ffb300" : "#ffe566";
   const diskColor = stats.diskPercent > 85 ? "#ff4400" : "#ffb300";
+
+  const brainColor = brainStatus === "online" ? "#00ff88" : brainStatus === "connecting" ? "#ffb300" : "rgba(255,179,0,0.2)";
+  const brainLabel = brainStatus === "online" ? "BRAIN ONLINE" : brainStatus === "connecting" ? "BRAIN CONNECTING" : "BRAIN OFFLINE";
 
   return (
     <div style={{
@@ -94,6 +99,14 @@ export function TopBar() {
         <span style={{ fontSize: 8, letterSpacing: 3, color: "rgba(255,179,0,0.5)" }}>
           {provider === "groq" ? "GROQ ONLINE" : "OLLAMA LOCAL"}
         </span>
+      </div>
+
+      <div style={{ width: 1, height: 28, background: "rgba(255,179,0,0.12)" }} />
+
+      {/* Brain status badge */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ width: 6, height: 6, borderRadius: "50%", background: brainColor, boxShadow: brainStatus === "online" ? `0 0 8px ${brainColor}` : "none" }} />
+        <span style={{ fontSize: 8, letterSpacing: 3, color: "rgba(255,179,0,0.5)" }}>{brainLabel}</span>
       </div>
     </div>
   );

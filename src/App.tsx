@@ -1,6 +1,7 @@
 import { useTStore } from "./store";
 import { useSystemStats } from "./hooks/useSystemStats";
 import { useMemoryBoot } from "./hooks/useMemory";
+import { useBrainConnection, useBrainProfileSync } from "./hooks/useBridge";
 import { TopBar } from "./components/hud/TopBar";
 import { SideNav } from "./components/hud/SideNav";
 import { ChatPanel } from "./components/chat/ChatPanel";
@@ -15,6 +16,8 @@ export default function App() {
   // Global hooks — run once at app level
   useSystemStats(2000);
   useMemoryBoot();
+  useBrainConnection();
+  useBrainProfileSync();
 
   return (
     <div
