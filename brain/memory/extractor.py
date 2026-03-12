@@ -11,24 +11,23 @@ OLLAMA_URL   = "http://localhost:11434"
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")
 
 _EXTRACT_PROMPT = """\
-You are a memory extraction system for a personal AI assistant called T.
-
-Analyze the following conversation exchange and extract any facts worth remembering long-term about the user or their context. These are facts that would be useful in future unrelated conversations.
+Extract memorable long-term facts about the user from this conversation exchange.
 
 Rules:
-- Only extract concrete, specific facts (names, preferences, tools, goals, projects, systems, habits).
-- Do NOT extract transient info (current questions, weather queries, one-off tasks).
-- Do NOT extract things T said — only facts about the user or their environment.
-- Return a JSON array. Each item: {"key": "short_snake_case_id", "value": "concise fact statement"}
-- If nothing is worth remembering, return an empty array: []
-- Maximum 5 facts per exchange.
-- Keys must be unique identifiers like: user_os, preferred_language, project_name, target_ip, etc.
+- Only extract concrete facts: names, tools, preferences, projects, systems, targets, habits.
+- Skip transient info: one-off questions, weather, current tasks that won't recur.
+- Skip anything T said — only facts about the user or their environment.
+- Maximum 5 facts.
+- Return a JSON array only. No explanation, no markdown, no preamble.
 
-Exchange:
+Each item format: {{"key": "snake_case_id", "value": "fact about the user"}}
+
+If nothing is worth remembering, return: []
+
 USER: {user_msg}
 T: {assistant_msg}
 
-Return ONLY the JSON array, no explanation."""
+JSON array:"""
 
 
 async def extract(
@@ -60,19 +59,51 @@ async def extract(
 
 def _parse(raw: str) -> list[dict]:
     raw = raw.strip()
+
     # Strip markdown code fences if present
     if raw.startswith("```"):
         lines = raw.splitlines()
-        raw = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
+        inner = []
+        for line in lines[1:]:
+            if line.strip() == "```":
+                break
+            inner.append(line)
+        raw = "\n".join(inner).strip()
+
+    # If the model just echoed a fragment like "key" or empty — bail early
+    if not raw or raw in ('"key"', "key", "[]", '""'):
+        return []
+
+    # Must start with [ to be a valid array
+    if not raw.startswith("["):
+        # Try to find an array inside the response
+        start = raw.find("[")
+        end   = raw.rfind("]")
+        if start == -1 or end == -1 or end <= start:
+            return []
+        raw = raw[start:end + 1]
+
     try:
         data = json.loads(raw)
         if not isinstance(data, list):
             return []
-        return [
-            {"key": str(item["key"]), "value": str(item["value"])}
-            for item in data
-            if isinstance(item, dict) and "key" in item and "value" in item
-        ]
+        results = []
+        for item in data:
+            if not isinstance(item, dict):
+                continue
+            key   = item.get("key",   "")
+            value = item.get("value", "")
+            # Skip malformed or placeholder entries
+            if (
+                not key or not value
+                or key   in ("key",   "<key>",   "short_snake_case_id")
+                or value in ("value", "<value>", "concise fact statement")
+                or len(key) > 80
+                or len(value) > 400
+            ):
+                continue
+            results.append({"key": str(key), "value": str(value)})
+        return results
     except Exception:
         log.warning(f"extractor parse failed: {raw[:120]}")
         return []
