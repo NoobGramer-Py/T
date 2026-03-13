@@ -90,6 +90,44 @@ def _detect_integration(content: str) -> tuple[str, dict] | None:
     if re.search(r"(what('s| is) (?:in |on )?(?:my )?clipboard|read clipboard|get clipboard)", c):
         return ("get_clipboard", {})
 
+    # Hardware — pin write
+    hw_write = re.search(
+        r"(?:turn|set|switch|put)\s+(?:pin\s+)?(\w+)\s+(on|off|high|low)"
+        r"|(?:turn|switch)\s+(on|off)\s+(?:pin\s+)?(\w+)",
+        c, re.IGNORECASE,
+    )
+    if hw_write:
+        g = hw_write.groups()
+        if g[0] and g[1]:   # "turn pin 13 on"
+            pin   = g[0]
+            state = "HIGH" if g[1].lower() in ("on", "high") else "LOW"
+        else:               # "turn on pin 13"
+            pin   = g[3] or ""
+            state = "HIGH" if g[2] and g[2].lower() == "on" else "LOW"
+        return ("hardware", {"action": "digital_write", "pin": pin, "value": state})
+
+    # Hardware — temperature / DHT read
+    if re.search(r"(read|get|what('s| is))\s+(temperature|temp|humidity|dht)", c, re.IGNORECASE):
+        return ("hardware", {"action": "dht", "pin": "2"})
+
+    # Hardware — analog read
+    hw_aread = re.search(r"(?:read|get)\s+(?:analog\s+)?pin\s+(A?\d+)", c, re.IGNORECASE)
+    if hw_aread:
+        return ("hardware", {"action": "analog_read", "pin": hw_aread.group(1)})
+
+    # Hardware — digital read
+    hw_dread = re.search(r"(?:read|get)\s+(?:digital\s+)?pin\s+(\d+)", c, re.IGNORECASE)
+    if hw_dread:
+        return ("hardware", {"action": "digital_read", "pin": hw_dread.group(1)})
+
+    # Hardware — list devices
+    if re.search(r"(list|show|what)\s+(?:hardware\s+)?devices", c, re.IGNORECASE):
+        return ("hardware", {"action": "list"})
+
+    # Hardware — scan serial ports
+    if re.search(r"scan\s+(?:for\s+)?(?:serial|com)\s+(?:port|device)", c, re.IGNORECASE):
+        return ("hardware", {"action": "discover"})
+
     return None
 
 
@@ -120,6 +158,17 @@ async def _handle_integration(client: "Client", msg_id: str, kind: str, params: 
             result = await take_screenshot()
         elif kind == "get_clipboard":
             result = await get_clipboard()
+        elif kind == "hardware":
+            # Route directly to hardware command_router with first registered device
+            from hardware.registry   import list_all, load
+            from hardware.command_router import handle_hardware_command
+            load()
+            devices = list_all()
+            device_id = devices[0].id if devices else ""
+            hw_msg = {"action": params.get("action", "list"), "device_id": device_id, **params}
+            await handle_hardware_command(client, hw_msg)
+            # hardware_command already sent its own response — skip the chunk streaming below
+            return True
         else:
             return False
 
@@ -164,6 +213,8 @@ async def handle(client: "Client", raw: str) -> None:
     elif t == "memory_inspect":          await _handle_memory_inspect(client, msg)
     elif t == "set_reminder":            _handle_set_reminder(client, msg)
     elif t == "cancel_reminder":         _handle_cancel_reminder(client, msg)
+    elif t == "hardware_command":        await _handle_hardware_command(client, msg)
+    elif t == "hardware_confirm":        await _handle_hardware_confirm(client, msg)
     elif t == "ping":                    await client.send({"type": "pong"})
     else:
         log.warning(f"unknown message type '{t}' from {client.id}")
@@ -374,3 +425,15 @@ def _handle_cancel_reminder(client: "Client", msg: dict) -> None:
         cancel_reminder(msg["id"])
     except Exception as e:
         log.warning(f"cancel_reminder error: {e}")
+
+
+# ─── Hardware ─────────────────────────────────────────────────────────────────
+
+async def _handle_hardware_command(client: "Client", msg: dict) -> None:
+    from hardware.command_router import handle_hardware_command
+    await handle_hardware_command(client, msg)
+
+
+async def _handle_hardware_confirm(client: "Client", msg: dict) -> None:
+    from hardware.command_router import handle_hardware_confirm
+    await handle_hardware_confirm(client, msg)

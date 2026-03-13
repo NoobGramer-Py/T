@@ -16,9 +16,9 @@ type Tab = "stats" | "files" | "processes" | "script" | "scheduler" | "clipboard
 
 function SectionHeader({ title, icon }: { title: string; icon: string }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, paddingBottom: 8, borderBottom: "1px solid rgba(255,179,0,0.08)" }}>
-      <span style={{ fontSize: 14, color: "#ffb300", textShadow: "0 0 8px #ffb300" }}>{icon}</span>
-      <span style={{ fontSize: 9, letterSpacing: 4, color: "rgba(255,179,0,0.6)" }}>{title}</span>
+    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, paddingBottom: 8, borderBottom: "1px solid rgba(0,212,255,0.08)" }}>
+      <span style={{ fontSize: 14, color: "#00d4ff", textShadow: "0 0 8px #00d4ff" }}>{icon}</span>
+      <span style={{ fontSize: 9, letterSpacing: 4, color: "rgba(0,212,255,0.6)" }}>{title}</span>
     </div>
   );
 }
@@ -29,9 +29,9 @@ function Btn({ label, onClick, disabled = false, danger = false }: {
   return (
     <button onClick={onClick} disabled={disabled} style={{
       padding: "5px 14px", fontSize: 8, letterSpacing: 2,
-      background: danger ? "rgba(255,68,0,0.07)" : "rgba(255,179,0,0.07)",
-      border: `1px solid ${danger ? "rgba(255,68,0,0.3)" : "rgba(255,179,0,0.25)"}`,
-      color: danger ? "#ff4400" : "#ffb300",
+      background: danger ? "rgba(255,68,0,0.07)" : "rgba(0,212,255,0.07)",
+      border: `1px solid ${danger ? "rgba(255,68,0,0.3)" : "rgba(0,212,255,0.25)"}`,
+      color: danger ? "#ff4400" : "#00d4ff",
       borderRadius: 3, cursor: disabled ? "not-allowed" : "pointer",
       fontFamily: "inherit", opacity: disabled ? 0.4 : 1,
       transition: "all 0.2s ease",
@@ -52,7 +52,7 @@ function Gauge({ label, value, color }: { label: string; value: number; color: s
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
       <div style={{ position: "relative", width: 90, height: 90 }}>
         <svg width="90" height="90" style={{ transform: "rotate(-90deg)" }}>
-          <circle cx="45" cy="45" r="36" fill="none" stroke="rgba(255,179,0,0.08)" strokeWidth="4" />
+          <circle cx="45" cy="45" r="36" fill="none" stroke="rgba(0,212,255,0.08)" strokeWidth="4" />
           <circle cx="45" cy="45" r="36" fill="none" stroke={color} strokeWidth="4"
             strokeDasharray={`${dash} ${stroke}`} strokeLinecap="round"
             style={{ filter: `drop-shadow(0 0 4px ${color})`, transition: "stroke-dasharray 1s ease" }}
@@ -60,19 +60,19 @@ function Gauge({ label, value, color }: { label: string; value: number; color: s
         </svg>
         <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
           <span style={{ fontSize: 14, fontWeight: "bold", color, textShadow: `0 0 8px ${color}` }}>{clamped.toFixed(0)}</span>
-          <span style={{ fontSize: 7, color: "rgba(255,179,0,0.4)" }}>%</span>
+          <span style={{ fontSize: 7, color: "rgba(0,212,255,0.4)" }}>%</span>
         </div>
       </div>
-      <div style={{ fontSize: 8, letterSpacing: 3, color: "rgba(255,179,0,0.5)" }}>{label}</div>
+      <div style={{ fontSize: 8, letterSpacing: 3, color: "rgba(0,212,255,0.5)" }}>{label}</div>
     </div>
   );
 }
 
 function StatsTab() {
   const stats = useTStore((s) => s.stats);
-  const cpuColor  = stats.cpuPercent  > 80 ? "#ff4400" : "#ffb300";
-  const ramColor  = stats.ramPercent  > 80 ? "#ff4400" : "#ffe566";
-  const diskColor = stats.diskPercent > 85 ? "#ff4400" : "#ff6e00";
+  const cpuColor  = stats.cpuPercent  > 80 ? "#ff4400" : "#00d4ff";
+  const ramColor  = stats.ramPercent  > 80 ? "#ff4400" : "#a0f4ff";
+  const diskColor = stats.diskPercent > 85 ? "#ff4400" : "#0088cc";
 
   const fmt = (secs: number) => {
     const h = Math.floor(secs / 3600);
@@ -94,9 +94,9 @@ function StatsTab() {
           { label: "NETWORK TX", value: `${stats.networkTxKbps.toFixed(0)} KB/s` },
           { label: "UPTIME",     value: fmt(stats.uptime) },
         ].map(({ label, value }) => (
-          <div key={label} style={{ background: "rgba(255,179,0,0.02)", border: "1px solid rgba(255,179,0,0.08)", borderRadius: 3, padding: "10px 14px" }}>
-            <div style={{ fontSize: 7, letterSpacing: 4, color: "rgba(255,179,0,0.4)", marginBottom: 5 }}>{label}</div>
-            <div style={{ fontSize: 13, color: "#ffb300", textShadow: "0 0 8px rgba(255,179,0,0.4)" }}>{value}</div>
+          <div key={label} style={{ background: "rgba(0,212,255,0.02)", border: "1px solid rgba(0,212,255,0.08)", borderRadius: 3, padding: "10px 14px" }}>
+            <div style={{ fontSize: 7, letterSpacing: 4, color: "rgba(0,212,255,0.4)", marginBottom: 5 }}>{label}</div>
+            <div style={{ fontSize: 13, color: "#00d4ff", textShadow: "0 0 8px rgba(0,212,255,0.4)" }}>{value}</div>
           </div>
         ))}
       </div>
@@ -198,7 +198,7 @@ function FileManagerTab() {
       {/* Path bar */}
       <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
         <Btn label="↑ UP" onClick={goUp} />
-        <div style={{ flex: 1, background: "rgba(255,179,0,0.02)", border: "1px solid rgba(255,179,0,0.12)", borderRadius: 3, padding: "5px 10px", fontSize: 10, color: "rgba(255,179,0,0.7)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <div style={{ flex: 1, background: "rgba(0,212,255,0.02)", border: "1px solid rgba(0,212,255,0.12)", borderRadius: 3, padding: "5px 10px", fontSize: 10, color: "rgba(0,212,255,0.7)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {path}
         </div>
       </div>
@@ -207,9 +207,9 @@ function FileManagerTab() {
       <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
         <input value={searchQ} onChange={(e) => setSearchQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && search()}
           placeholder="search files in current directory..."
-          style={{ flex: 1, background: "rgba(255,179,0,0.03)", border: "1px solid rgba(255,179,0,0.12)", borderRadius: 3, padding: "5px 10px", color: "rgba(255,230,102,0.9)", fontSize: 10, fontFamily: "inherit", outline: "none", caretColor: "#ffb300" }}
-          onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.4)"; }}
-          onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.12)"; }}
+          style={{ flex: 1, background: "rgba(0,212,255,0.03)", border: "1px solid rgba(0,212,255,0.12)", borderRadius: 3, padding: "5px 10px", color: "rgba(160,244,255,0.9)", fontSize: 10, fontFamily: "inherit", outline: "none", caretColor: "#00d4ff" }}
+          onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(0,212,255,0.4)"; }}
+          onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(0,212,255,0.12)"; }}
         />
         <Btn label={loading ? "···" : "SEARCH"} onClick={search} disabled={loading} />
         {searchRes && <Btn label="CLEAR" onClick={() => setSearchRes(null)} />}
@@ -218,19 +218,19 @@ function FileManagerTab() {
       {/* New folder / rename row */}
       <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
         <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="name for new folder or rename..."
-          style={{ flex: 1, background: "rgba(255,179,0,0.03)", border: "1px solid rgba(255,179,0,0.12)", borderRadius: 3, padding: "5px 10px", color: "rgba(255,230,102,0.9)", fontSize: 10, fontFamily: "inherit", outline: "none", caretColor: "#ffb300" }}
-          onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.4)"; }}
-          onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.12)"; }}
+          style={{ flex: 1, background: "rgba(0,212,255,0.03)", border: "1px solid rgba(0,212,255,0.12)", borderRadius: 3, padding: "5px 10px", color: "rgba(160,244,255,0.9)", fontSize: 10, fontFamily: "inherit", outline: "none", caretColor: "#00d4ff" }}
+          onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(0,212,255,0.4)"; }}
+          onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(0,212,255,0.12)"; }}
         />
         <Btn label="NEW FOLDER" onClick={mkdir} />
         {selected && <Btn label="RENAME" onClick={() => rename(selected)} />}
       </div>
 
-      {status && <div style={{ fontSize: 9, color: "rgba(255,179,0,0.5)", marginBottom: 8 }}>{status}</div>}
+      {status && <div style={{ fontSize: 9, color: "rgba(0,212,255,0.5)", marginBottom: 8 }}>{status}</div>}
 
       <div style={{ display: "flex", gap: 12, height: 280 }}>
         {/* File list */}
-        <div style={{ flex: 1, border: "1px solid rgba(255,179,0,0.08)", borderRadius: 3, overflowY: "auto" }}>
+        <div style={{ flex: 1, border: "1px solid rgba(0,212,255,0.08)", borderRadius: 3, overflowY: "auto" }}>
           {searchRes !== null
             ? searchRes.map((entry) => (
               <div key={entry.path}
@@ -245,25 +245,25 @@ function FileManagerTab() {
                     readFile(entry.path).then(setFileContent).catch((e) => setFileContent(`[Cannot read: ${e instanceof Error ? e.message : "Error"}]`));
                   }
                 }}
-                style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 10px", cursor: "pointer", borderBottom: "1px solid rgba(255,179,0,0.04)", background: "transparent", transition: "background 0.15s" }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "rgba(255,179,0,0.04)"; }}
+                style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 10px", cursor: "pointer", borderBottom: "1px solid rgba(0,212,255,0.04)", background: "transparent", transition: "background 0.15s" }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "rgba(0,212,255,0.04)"; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
               >
                 <span style={{ fontSize: 12 }}>{entry.is_dir ? "📁" : "📄"}</span>
-                <span style={{ flex: 1, fontSize: 10, color: entry.is_dir ? "#ffe566" : "rgba(255,179,0,0.8)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.name}</span>
-                <span style={{ fontSize: 8, color: "rgba(255,179,0,0.35)", maxWidth: 280, overflow: "hidden", textOverflow: "ellipsis" }}>{entry.path}</span>
+                <span style={{ flex: 1, fontSize: 10, color: entry.is_dir ? "#a0f4ff" : "rgba(0,212,255,0.8)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.name}</span>
+                <span style={{ fontSize: 8, color: "rgba(0,212,255,0.35)", maxWidth: 280, overflow: "hidden", textOverflow: "ellipsis" }}>{entry.path}</span>
               </div>
             ))
             : entries.map((entry) => (
               <div key={entry.path} onClick={() => open(entry)}
-                style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 10px", cursor: "pointer", borderBottom: "1px solid rgba(255,179,0,0.04)", background: selected?.path === entry.path ? "rgba(255,179,0,0.06)" : "transparent", transition: "background 0.15s" }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "rgba(255,179,0,0.04)"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = selected?.path === entry.path ? "rgba(255,179,0,0.06)" : "transparent"; }}
+                style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 10px", cursor: "pointer", borderBottom: "1px solid rgba(0,212,255,0.04)", background: selected?.path === entry.path ? "rgba(0,212,255,0.06)" : "transparent", transition: "background 0.15s" }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "rgba(0,212,255,0.04)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = selected?.path === entry.path ? "rgba(0,212,255,0.06)" : "transparent"; }}
               >
                 <span style={{ fontSize: 12 }}>{entry.is_dir ? "📁" : "📄"}</span>
-                <span style={{ flex: 1, fontSize: 10, color: entry.is_dir ? "#ffe566" : "rgba(255,179,0,0.8)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.name}</span>
-                {!entry.is_dir && <span style={{ fontSize: 8, color: "rgba(255,179,0,0.35)" }}>{fmtSize(entry.size_kb)}</span>}
-                <span style={{ fontSize: 8, color: "rgba(255,179,0,0.25)" }}>{fmtDate(entry.modified)}</span>
+                <span style={{ flex: 1, fontSize: 10, color: entry.is_dir ? "#a0f4ff" : "rgba(0,212,255,0.8)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.name}</span>
+                {!entry.is_dir && <span style={{ fontSize: 8, color: "rgba(0,212,255,0.35)" }}>{fmtSize(entry.size_kb)}</span>}
+                <span style={{ fontSize: 8, color: "rgba(0,212,255,0.25)" }}>{fmtDate(entry.modified)}</span>
                 <button onClick={(e) => { e.stopPropagation(); del(entry); }}
                   style={{ fontSize: 8, padding: "1px 6px", background: "transparent", border: "1px solid rgba(255,68,0,0.2)", color: "#ff4400", cursor: "pointer", borderRadius: 2, fontFamily: "inherit" }}>
                   DEL
@@ -276,11 +276,11 @@ function FileManagerTab() {
         {/* File preview / editor */}
         {selected && fileContent !== null && (
           <div style={{ width: 320, display: "flex", flexDirection: "column", gap: 6 }}>
-            <div style={{ fontSize: 8, color: "rgba(255,179,0,0.4)", letterSpacing: 2 }}>{selected.name}</div>
+            <div style={{ fontSize: 8, color: "rgba(0,212,255,0.4)", letterSpacing: 2 }}>{selected.name}</div>
             {editing
               ? <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)}
-                  style={{ flex: 1, resize: "none", background: "rgba(255,179,0,0.02)", border: "1px solid rgba(255,179,0,0.2)", borderRadius: 3, padding: "8px", color: "rgba(255,230,102,0.9)", fontSize: 10, fontFamily: "inherit", outline: "none" }} />
-              : <pre style={{ flex: 1, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,179,0,0.07)", borderRadius: 3, padding: "8px", color: "rgba(255,179,0,0.75)", fontSize: 9, overflow: "auto", whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
+                  style={{ flex: 1, resize: "none", background: "rgba(0,212,255,0.02)", border: "1px solid rgba(0,212,255,0.2)", borderRadius: 3, padding: "8px", color: "rgba(160,244,255,0.9)", fontSize: 10, fontFamily: "inherit", outline: "none" }} />
+              : <pre style={{ flex: 1, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(0,212,255,0.07)", borderRadius: 3, padding: "8px", color: "rgba(0,212,255,0.75)", fontSize: 9, overflow: "auto", whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
                   {fileContent}
                 </pre>
             }
@@ -322,15 +322,15 @@ function ProcessTab() {
         <Btn label={loading ? "LOADING···" : "REFRESH"} onClick={load} disabled={loading} />
       </div>
       {procs.length > 0 && (
-        <div style={{ maxHeight: 340, overflowY: "auto", border: "1px solid rgba(255,179,0,0.08)", borderRadius: 3 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "60px 1fr 70px 80px 60px", gap: 8, padding: "6px 12px", borderBottom: "1px solid rgba(255,179,0,0.1)", fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.4)" }}>
+        <div style={{ maxHeight: 340, overflowY: "auto", border: "1px solid rgba(0,212,255,0.08)", borderRadius: 3 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "60px 1fr 70px 80px 60px", gap: 8, padding: "6px 12px", borderBottom: "1px solid rgba(0,212,255,0.1)", fontSize: 7, letterSpacing: 3, color: "rgba(0,212,255,0.4)" }}>
             <span>PID</span><span>NAME</span><span>CPU%</span><span>MEM MB</span><span></span>
           </div>
           {procs.slice(0, 80).map((p) => (
-            <div key={p.pid} style={{ display: "grid", gridTemplateColumns: "60px 1fr 70px 80px 60px", gap: 8, padding: "5px 12px", borderBottom: "1px solid rgba(255,179,0,0.04)", fontSize: 10, color: "rgba(255,179,0,0.75)", alignItems: "center" }}>
-              <span style={{ color: "rgba(255,179,0,0.4)", fontSize: 9 }}>{p.pid}</span>
+            <div key={p.pid} style={{ display: "grid", gridTemplateColumns: "60px 1fr 70px 80px 60px", gap: 8, padding: "5px 12px", borderBottom: "1px solid rgba(0,212,255,0.04)", fontSize: 10, color: "rgba(0,212,255,0.75)", alignItems: "center" }}>
+              <span style={{ color: "rgba(0,212,255,0.4)", fontSize: 9 }}>{p.pid}</span>
               <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
-              <span style={{ color: p.cpu > 50 ? "#ff4400" : "#ffb300" }}>{p.cpu.toFixed(1)}</span>
+              <span style={{ color: p.cpu > 50 ? "#ff4400" : "#00d4ff" }}>{p.cpu.toFixed(1)}</span>
               <span>{p.mem_mb.toFixed(0)}</span>
               <button onClick={() => kill(p.pid)} disabled={killing === p.pid}
                 style={{ fontSize: 8, padding: "2px 6px", background: "transparent", border: "1px solid rgba(255,68,0,0.3)", color: "#ff4400", cursor: "pointer", borderRadius: 2, fontFamily: "inherit", opacity: killing === p.pid ? 0.4 : 1 }}>
@@ -368,23 +368,23 @@ function ScriptTab() {
         {(["powershell", "bash", "python"] as const).map((s) => (
           <button key={s} onClick={() => setShell(s)} style={{
             padding: "4px 10px", fontSize: 7, letterSpacing: 2,
-            background: shell === s ? "rgba(255,179,0,0.1)" : "transparent",
-            border: `1px solid ${shell === s ? "rgba(255,179,0,0.4)" : "rgba(255,179,0,0.12)"}`,
-            color: shell === s ? "#ffb300" : "rgba(255,179,0,0.35)",
+            background: shell === s ? "rgba(0,212,255,0.1)" : "transparent",
+            border: `1px solid ${shell === s ? "rgba(0,212,255,0.4)" : "rgba(0,212,255,0.12)"}`,
+            color: shell === s ? "#00d4ff" : "rgba(0,212,255,0.35)",
             borderRadius: 3, cursor: "pointer", fontFamily: "inherit",
           }}>{s.toUpperCase()}</button>
         ))}
       </div>
       <textarea value={script} onChange={(e) => setScript(e.target.value)} placeholder={`Enter ${shell} script...`} rows={5}
-        style={{ width: "100%", resize: "vertical", background: "rgba(255,179,0,0.02)", border: "1px solid rgba(255,179,0,0.12)", borderRadius: 3, padding: "8px 12px", marginBottom: 8, color: "rgba(255,230,102,0.9)", fontSize: 11, lineHeight: 1.6, fontFamily: "inherit", outline: "none", caretColor: "#ffb300" }}
-        onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.35)"; }}
-        onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.12)"; }}
+        style={{ width: "100%", resize: "vertical", background: "rgba(0,212,255,0.02)", border: "1px solid rgba(0,212,255,0.12)", borderRadius: 3, padding: "8px 12px", marginBottom: 8, color: "rgba(160,244,255,0.9)", fontSize: 11, lineHeight: 1.6, fontFamily: "inherit", outline: "none", caretColor: "#00d4ff" }}
+        onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(0,212,255,0.35)"; }}
+        onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(0,212,255,0.12)"; }}
       />
       <div style={{ marginBottom: output ? 10 : 0 }}>
         <Btn label={loading ? "EXECUTING···" : "EXECUTE"} onClick={run} disabled={loading || !script.trim()} />
       </div>
       {output && (
-        <pre style={{ background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,179,0,0.08)", borderRadius: 3, padding: "10px 14px", color: "rgba(255,230,102,0.8)", fontSize: 10, lineHeight: 1.5, overflow: "auto", maxHeight: 200, whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
+        <pre style={{ background: "rgba(0,0,0,0.4)", border: "1px solid rgba(0,212,255,0.08)", borderRadius: 3, padding: "10px 14px", color: "rgba(160,244,255,0.8)", fontSize: 10, lineHeight: 1.5, overflow: "auto", maxHeight: 200, whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
           {output}
         </pre>
       )}
@@ -439,38 +439,38 @@ function SchedulerTab() {
           { label: "SHELL",      value: shell, set: setShell, placeholder: "powershell / bash / python" },
         ].map(({ label: l, value, set, placeholder }) => (
           <div key={l}>
-            <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.4)", marginBottom: 4 }}>{l}</div>
+            <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(0,212,255,0.4)", marginBottom: 4 }}>{l}</div>
             <input value={value} onChange={(e) => set(e.target.value)} placeholder={placeholder}
-              style={{ width: "100%", background: "rgba(255,179,0,0.03)", border: "1px solid rgba(255,179,0,0.12)", borderRadius: 3, padding: "5px 10px", color: "rgba(255,230,102,0.9)", fontSize: 10, fontFamily: "inherit", outline: "none", caretColor: "#ffb300" }}
-              onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.35)"; }}
-              onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.12)"; }}
+              style={{ width: "100%", background: "rgba(0,212,255,0.03)", border: "1px solid rgba(0,212,255,0.12)", borderRadius: 3, padding: "5px 10px", color: "rgba(160,244,255,0.9)", fontSize: 10, fontFamily: "inherit", outline: "none", caretColor: "#00d4ff" }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(0,212,255,0.35)"; }}
+              onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(0,212,255,0.12)"; }}
             />
           </div>
         ))}
       </div>
       <div style={{ marginBottom: 8 }}>
-        <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.4)", marginBottom: 4 }}>COMMAND</div>
+        <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(0,212,255,0.4)", marginBottom: 4 }}>COMMAND</div>
         <input value={command} onChange={(e) => setCommand(e.target.value)} placeholder="script or command to run"
-          style={{ width: "100%", background: "rgba(255,179,0,0.03)", border: "1px solid rgba(255,179,0,0.12)", borderRadius: 3, padding: "5px 10px", color: "rgba(255,230,102,0.9)", fontSize: 10, fontFamily: "inherit", outline: "none", caretColor: "#ffb300" }}
-          onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.35)"; }}
-          onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.12)"; }}
+          style={{ width: "100%", background: "rgba(0,212,255,0.03)", border: "1px solid rgba(0,212,255,0.12)", borderRadius: 3, padding: "5px 10px", color: "rgba(160,244,255,0.9)", fontSize: 10, fontFamily: "inherit", outline: "none", caretColor: "#00d4ff" }}
+          onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(0,212,255,0.35)"; }}
+          onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(0,212,255,0.12)"; }}
         />
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
         <div>
-          <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.4)", marginBottom: 4 }}>RUN AT</div>
+          <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(0,212,255,0.4)", marginBottom: 4 }}>RUN AT</div>
           <input type="datetime-local" value={runAt} onChange={(e) => setRunAt(e.target.value)}
-            style={{ width: "100%", background: "rgba(255,179,0,0.03)", border: "1px solid rgba(255,179,0,0.12)", borderRadius: 3, padding: "5px 10px", color: "rgba(255,230,102,0.9)", fontSize: 10, fontFamily: "inherit", outline: "none", colorScheme: "dark" }}
-            onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.35)"; }}
-            onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.12)"; }}
+            style={{ width: "100%", background: "rgba(0,212,255,0.03)", border: "1px solid rgba(0,212,255,0.12)", borderRadius: 3, padding: "5px 10px", color: "rgba(160,244,255,0.9)", fontSize: 10, fontFamily: "inherit", outline: "none", colorScheme: "dark" }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(0,212,255,0.35)"; }}
+            onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(0,212,255,0.12)"; }}
           />
         </div>
         <div>
-          <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.4)", marginBottom: 4 }}>REPEAT (SECONDS, 0 = ONCE)</div>
+          <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(0,212,255,0.4)", marginBottom: 4 }}>REPEAT (SECONDS, 0 = ONCE)</div>
           <input type="number" value={repeatSecs} onChange={(e) => setRepeatSecs(e.target.value)} min="0"
-            style={{ width: "100%", background: "rgba(255,179,0,0.03)", border: "1px solid rgba(255,179,0,0.12)", borderRadius: 3, padding: "5px 10px", color: "rgba(255,230,102,0.9)", fontSize: 10, fontFamily: "inherit", outline: "none", caretColor: "#ffb300" }}
-            onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.35)"; }}
-            onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.12)"; }}
+            style={{ width: "100%", background: "rgba(0,212,255,0.03)", border: "1px solid rgba(0,212,255,0.12)", borderRadius: 3, padding: "5px 10px", color: "rgba(160,244,255,0.9)", fontSize: 10, fontFamily: "inherit", outline: "none", caretColor: "#00d4ff" }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(0,212,255,0.35)"; }}
+            onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(0,212,255,0.12)"; }}
           />
         </div>
       </div>
@@ -479,13 +479,13 @@ function SchedulerTab() {
       </div>
 
       {tasks.length === 0
-        ? <div style={{ fontSize: 9, color: "rgba(255,179,0,0.25)", fontStyle: "italic" }}>No scheduled tasks.</div>
+        ? <div style={{ fontSize: 9, color: "rgba(0,212,255,0.25)", fontStyle: "italic" }}>No scheduled tasks.</div>
         : tasks.map((t) => (
-          <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", marginBottom: 4, background: "rgba(255,179,0,0.02)", border: "1px solid rgba(255,179,0,0.07)", borderRadius: 3, opacity: t.enabled ? 1 : 0.45 }}>
+          <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", marginBottom: 4, background: "rgba(0,212,255,0.02)", border: "1px solid rgba(0,212,255,0.07)", borderRadius: 3, opacity: t.enabled ? 1 : 0.45 }}>
             <div style={{ flex: 1 }}>
-              <div style={{ color: "#ffe566", fontSize: 10 }}>{t.label}</div>
-              <div style={{ color: "rgba(255,179,0,0.45)", fontSize: 9 }}>{t.command} · {t.shell}</div>
-              <div style={{ color: "rgba(255,179,0,0.3)", fontSize: 8, marginTop: 2 }}>Run at: {fmtDate(t.run_at)}{t.repeat_secs > 0 ? ` · repeat every ${t.repeat_secs}s` : ""}</div>
+              <div style={{ color: "#a0f4ff", fontSize: 10 }}>{t.label}</div>
+              <div style={{ color: "rgba(0,212,255,0.45)", fontSize: 9 }}>{t.command} · {t.shell}</div>
+              <div style={{ color: "rgba(0,212,255,0.3)", fontSize: 8, marginTop: 2 }}>Run at: {fmtDate(t.run_at)}{t.repeat_secs > 0 ? ` · repeat every ${t.repeat_secs}s` : ""}</div>
             </div>
             <Btn label={t.enabled ? "DISABLE" : "ENABLE"} onClick={() => toggle(t.id, t.enabled)} />
             <Btn label="DEL" onClick={() => remove(t.id)} danger />
@@ -533,19 +533,19 @@ function ClipboardTab() {
       </div>
 
       {current && (
-        <div style={{ background: "rgba(255,179,0,0.04)", border: "1px solid rgba(255,179,0,0.2)", borderRadius: 3, padding: "10px 14px", marginBottom: 14 }}>
-          <div style={{ fontSize: 7, letterSpacing: 4, color: "rgba(255,179,0,0.4)", marginBottom: 5 }}>CURRENT CLIPBOARD</div>
-          <div style={{ fontSize: 11, color: "rgba(255,230,102,0.9)", wordBreak: "break-all" }}>{current}</div>
+        <div style={{ background: "rgba(0,212,255,0.04)", border: "1px solid rgba(0,212,255,0.2)", borderRadius: 3, padding: "10px 14px", marginBottom: 14 }}>
+          <div style={{ fontSize: 7, letterSpacing: 4, color: "rgba(0,212,255,0.4)", marginBottom: 5 }}>CURRENT CLIPBOARD</div>
+          <div style={{ fontSize: 11, color: "rgba(160,244,255,0.9)", wordBreak: "break-all" }}>{current}</div>
         </div>
       )}
 
       {history.length === 0
-        ? <div style={{ fontSize: 9, color: "rgba(255,179,0,0.25)", fontStyle: "italic" }}>No clipboard history.</div>
+        ? <div style={{ fontSize: 9, color: "rgba(0,212,255,0.25)", fontStyle: "italic" }}>No clipboard history.</div>
         : history.map((h) => (
-          <div key={h.id} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "7px 12px", marginBottom: 3, background: "rgba(255,179,0,0.02)", border: "1px solid rgba(255,179,0,0.07)", borderRadius: 3 }}>
+          <div key={h.id} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "7px 12px", marginBottom: 3, background: "rgba(0,212,255,0.02)", border: "1px solid rgba(0,212,255,0.07)", borderRadius: 3 }}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 10, color: "rgba(255,179,0,0.8)", wordBreak: "break-all", maxHeight: 40, overflow: "hidden" }}>{h.content}</div>
-              <div style={{ fontSize: 8, color: "rgba(255,179,0,0.3)", marginTop: 3 }}>{new Date(h.saved_at * 1000).toLocaleString()}</div>
+              <div style={{ fontSize: 10, color: "rgba(0,212,255,0.8)", wordBreak: "break-all", maxHeight: 40, overflow: "hidden" }}>{h.content}</div>
+              <div style={{ fontSize: 8, color: "rgba(0,212,255,0.3)", marginTop: 3 }}>{new Date(h.saved_at * 1000).toLocaleString()}</div>
             </div>
             <Btn label="COPY" onClick={() => copyItem(h.content)} />
           </div>
@@ -587,26 +587,26 @@ function LauncherTab() {
       <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
         <input value={appName} onChange={(e) => setAppName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && launch(appName)}
           placeholder="application name..."
-          style={{ flex: 1, background: "rgba(255,179,0,0.03)", border: "1px solid rgba(255,179,0,0.12)", borderRadius: 3, padding: "6px 10px", color: "rgba(255,230,102,0.9)", fontSize: 11, fontFamily: "inherit", outline: "none", caretColor: "#ffb300" }}
-          onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.4)"; }}
-          onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.12)"; }}
+          style={{ flex: 1, background: "rgba(0,212,255,0.03)", border: "1px solid rgba(0,212,255,0.12)", borderRadius: 3, padding: "6px 10px", color: "rgba(160,244,255,0.9)", fontSize: 11, fontFamily: "inherit", outline: "none", caretColor: "#00d4ff" }}
+          onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(0,212,255,0.4)"; }}
+          onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(0,212,255,0.12)"; }}
         />
         <Btn label="LAUNCH" onClick={() => launch(appName)} disabled={!appName.trim()} />
       </div>
 
-      {status && <div style={{ fontSize: 9, color: "rgba(255,179,0,0.5)", marginBottom: 14 }}>{status}</div>}
+      {status && <div style={{ fontSize: 9, color: "rgba(0,212,255,0.5)", marginBottom: 14 }}>{status}</div>}
 
-      <div style={{ fontSize: 7, letterSpacing: 4, color: "rgba(255,179,0,0.35)", marginBottom: 12 }}>QUICK LAUNCH</div>
+      <div style={{ fontSize: 7, letterSpacing: 4, color: "rgba(0,212,255,0.35)", marginBottom: 12 }}>QUICK LAUNCH</div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
         {QUICK_APPS.map((app) => (
           <button key={app.name} onClick={() => launch(app.name)} style={{
             padding: "8px 16px", fontSize: 8, letterSpacing: 2,
-            background: "rgba(255,179,0,0.04)", border: "1px solid rgba(255,179,0,0.15)",
-            color: "rgba(255,179,0,0.7)", borderRadius: 3, cursor: "pointer", fontFamily: "inherit",
+            background: "rgba(0,212,255,0.04)", border: "1px solid rgba(0,212,255,0.15)",
+            color: "rgba(0,212,255,0.7)", borderRadius: 3, cursor: "pointer", fontFamily: "inherit",
             transition: "all 0.2s ease",
           }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,179,0,0.1)"; (e.currentTarget as HTMLButtonElement).style.color = "#ffb300"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,179,0,0.04)"; (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,179,0,0.7)"; }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(0,212,255,0.1)"; (e.currentTarget as HTMLButtonElement).style.color = "#00d4ff"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(0,212,255,0.04)"; (e.currentTarget as HTMLButtonElement).style.color = "rgba(0,212,255,0.7)"; }}
           >
             {app.label}
           </button>
@@ -634,13 +634,13 @@ export function SystemPanel() {
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
       {/* Tab bar */}
-      <div style={{ display: "flex", gap: 2, padding: "12px 16px 0", borderBottom: "1px solid rgba(255,179,0,0.08)", flexShrink: 0 }}>
+      <div style={{ display: "flex", gap: 2, padding: "12px 16px 0", borderBottom: "1px solid rgba(0,212,255,0.08)", flexShrink: 0 }}>
         {TABS.map(({ id, label }) => (
           <button key={id} onClick={() => setTab(id)} style={{
             padding: "6px 12px", fontSize: 7, letterSpacing: 3,
-            background: tab === id ? "rgba(255,179,0,0.08)" : "transparent",
-            border: "none", borderBottom: `2px solid ${tab === id ? "#ffb300" : "transparent"}`,
-            color: tab === id ? "#ffb300" : "rgba(255,179,0,0.35)",
+            background: tab === id ? "rgba(0,212,255,0.08)" : "transparent",
+            border: "none", borderBottom: `2px solid ${tab === id ? "#00d4ff" : "transparent"}`,
+            color: tab === id ? "#00d4ff" : "rgba(0,212,255,0.35)",
             cursor: "pointer", fontFamily: "inherit",
             transition: "all 0.2s ease",
           }}>

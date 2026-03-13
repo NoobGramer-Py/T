@@ -9,10 +9,10 @@ function SectionHeader({ title, icon }: { title: string; icon: string }) {
     <div style={{
       display: "flex", alignItems: "center", gap: 10,
       marginBottom: 14, paddingBottom: 8,
-      borderBottom: "1px solid rgba(255,179,0,0.08)",
+      borderBottom: "1px solid rgba(0,212,255,0.08)",
     }}>
-      <span style={{ fontSize: 14, color: "#ffb300", textShadow: "0 0 8px #ffb300" }}>{icon}</span>
-      <span style={{ fontSize: 9, letterSpacing: 4, color: "rgba(255,179,0,0.6)" }}>{title}</span>
+      <span style={{ fontSize: 14, color: "#00d4ff", textShadow: "0 0 8px #00d4ff" }}>{icon}</span>
+      <span style={{ fontSize: 9, letterSpacing: 4, color: "rgba(0,212,255,0.6)" }}>{title}</span>
     </div>
   );
 }
@@ -26,21 +26,21 @@ function Field({ label, value, onChange, type = "text", placeholder = "" }: {
 }) {
   return (
     <div style={{ marginBottom: 14 }}>
-      <div style={{ fontSize: 7, letterSpacing: 4, color: "rgba(255,179,0,0.4)", marginBottom: 5 }}>{label}</div>
+      <div style={{ fontSize: 7, letterSpacing: 4, color: "rgba(0,212,255,0.4)", marginBottom: 5 }}>{label}</div>
       <input
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         style={{
-          width: "100%", background: "rgba(255,179,0,0.03)",
-          border: "1px solid rgba(255,179,0,0.15)", borderRadius: 3,
-          padding: "7px 12px", color: "rgba(255,230,102,0.9)",
+          width: "100%", background: "rgba(0,212,255,0.03)",
+          border: "1px solid rgba(0,212,255,0.15)", borderRadius: 3,
+          padding: "7px 12px", color: "rgba(160,244,255,0.9)",
           fontSize: 11, fontFamily: "inherit", outline: "none",
-          caretColor: "#ffb300",
+          caretColor: "#00d4ff",
         }}
-        onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.4)"; }}
-        onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.15)"; }}
+        onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(0,212,255,0.4)"; }}
+        onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(0,212,255,0.15)"; }}
       />
     </div>
   );
@@ -78,7 +78,7 @@ function ProfileSection() {
       <Field label="HIBP API KEY" value={profile.hibpKey} onChange={(v) => setProfile({ hibpKey: v })} type="password" placeholder="haveibeenpwned.com — free key at haveibeenpwned.com/API/Key" />
       <Field label="TIMEZONE" value={profile.timezone} onChange={(v) => setProfile({ timezone: v })} placeholder="e.g. Asia/Karachi" />
       <div style={{ marginBottom: 14 }}>
-        <div style={{ fontSize: 7, letterSpacing: 4, color: "rgba(255,179,0,0.4)", marginBottom: 5 }}>NOTES FOR T</div>
+        <div style={{ fontSize: 7, letterSpacing: 4, color: "rgba(0,212,255,0.4)", marginBottom: 5 }}>NOTES FOR T</div>
         <textarea
           value={profile.notes}
           onChange={(e) => setProfile({ notes: e.target.value })}
@@ -86,19 +86,19 @@ function ProfileSection() {
           rows={3}
           style={{
             width: "100%", resize: "vertical",
-            background: "rgba(255,179,0,0.03)", border: "1px solid rgba(255,179,0,0.15)",
-            borderRadius: 3, padding: "7px 12px", color: "rgba(255,230,102,0.9)",
-            fontSize: 11, fontFamily: "inherit", outline: "none", caretColor: "#ffb300",
+            background: "rgba(0,212,255,0.03)", border: "1px solid rgba(0,212,255,0.15)",
+            borderRadius: 3, padding: "7px 12px", color: "rgba(160,244,255,0.9)",
+            fontSize: 11, fontFamily: "inherit", outline: "none", caretColor: "#00d4ff",
           }}
-          onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.4)"; }}
-          onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.15)"; }}
+          onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(0,212,255,0.4)"; }}
+          onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(0,212,255,0.15)"; }}
         />
       </div>
       <button onClick={save} style={{
         padding: "6px 20px", fontSize: 8, letterSpacing: 3,
-        background: saved ? "rgba(0,255,136,0.08)" : "rgba(255,179,0,0.08)",
-        border: `1px solid ${saved ? "rgba(0,255,136,0.4)" : "rgba(255,179,0,0.3)"}`,
-        color: saved ? "#00ff88" : "#ffb300",
+        background: saved ? "rgba(0,255,136,0.08)" : "rgba(0,212,255,0.08)",
+        border: `1px solid ${saved ? "rgba(0,255,136,0.4)" : "rgba(0,212,255,0.3)"}`,
+        color: saved ? "#00ff88" : "#00d4ff",
         borderRadius: 3, cursor: "pointer", fontFamily: "inherit",
         transition: "all 0.3s ease",
       }}>
@@ -139,27 +139,27 @@ function MemorySection() {
   return (
     <div style={{ marginBottom: 32 }}>
       <SectionHeader title="PERSISTENT MEMORY" icon="⬡" />
-      <div style={{ fontSize: 9, color: "rgba(255,179,0,0.35)", marginBottom: 12, lineHeight: 1.6 }}>
+      <div style={{ fontSize: 9, color: "rgba(0,212,255,0.35)", marginBottom: 12, lineHeight: 1.6 }}>
         Facts T injects into every conversation. Stored locally in SQLite.
       </div>
 
       {/* Add memory */}
       <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
         <input value={key} onChange={(e) => setKey(e.target.value)} placeholder="key (e.g. stack)"
-          style={{ flex: 1, background: "rgba(255,179,0,0.03)", border: "1px solid rgba(255,179,0,0.15)", borderRadius: 3, padding: "6px 10px", color: "rgba(255,230,102,0.9)", fontSize: 11, fontFamily: "inherit", outline: "none", caretColor: "#ffb300" }}
-          onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.4)"; }}
-          onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.15)"; }}
+          style={{ flex: 1, background: "rgba(0,212,255,0.03)", border: "1px solid rgba(0,212,255,0.15)", borderRadius: 3, padding: "6px 10px", color: "rgba(160,244,255,0.9)", fontSize: 11, fontFamily: "inherit", outline: "none", caretColor: "#00d4ff" }}
+          onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(0,212,255,0.4)"; }}
+          onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(0,212,255,0.15)"; }}
         />
         <input value={value} onChange={(e) => setValue(e.target.value)} placeholder="value"
           onKeyDown={(e) => e.key === "Enter" && add()}
-          style={{ flex: 2, background: "rgba(255,179,0,0.03)", border: "1px solid rgba(255,179,0,0.15)", borderRadius: 3, padding: "6px 10px", color: "rgba(255,230,102,0.9)", fontSize: 11, fontFamily: "inherit", outline: "none", caretColor: "#ffb300" }}
-          onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.4)"; }}
-          onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.15)"; }}
+          style={{ flex: 2, background: "rgba(0,212,255,0.03)", border: "1px solid rgba(0,212,255,0.15)", borderRadius: 3, padding: "6px 10px", color: "rgba(160,244,255,0.9)", fontSize: 11, fontFamily: "inherit", outline: "none", caretColor: "#00d4ff" }}
+          onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(0,212,255,0.4)"; }}
+          onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(0,212,255,0.15)"; }}
         />
         <button onClick={add} disabled={loading} style={{
           padding: "6px 14px", fontSize: 8, letterSpacing: 2,
-          background: "rgba(255,179,0,0.08)", border: "1px solid rgba(255,179,0,0.3)",
-          color: "#ffb300", borderRadius: 3, cursor: "pointer", fontFamily: "inherit",
+          background: "rgba(0,212,255,0.08)", border: "1px solid rgba(0,212,255,0.3)",
+          color: "#00d4ff", borderRadius: 3, cursor: "pointer", fontFamily: "inherit",
         }}>
           ADD
         </button>
@@ -167,16 +167,16 @@ function MemorySection() {
 
       {/* Memory list */}
       {memories.length === 0
-        ? <div style={{ fontSize: 9, color: "rgba(255,179,0,0.25)", fontStyle: "italic" }}>No memories stored.</div>
+        ? <div style={{ fontSize: 9, color: "rgba(0,212,255,0.25)", fontStyle: "italic" }}>No memories stored.</div>
         : memories.map((m) => (
           <div key={m.key} style={{
             display: "flex", alignItems: "center", gap: 10,
             padding: "6px 12px", marginBottom: 2,
-            background: "rgba(255,179,0,0.02)", border: "1px solid rgba(255,179,0,0.07)",
+            background: "rgba(0,212,255,0.02)", border: "1px solid rgba(0,212,255,0.07)",
             borderRadius: 3,
           }}>
-            <span style={{ color: "#ffe566", fontSize: 10, minWidth: 100 }}>{m.key}</span>
-            <span style={{ flex: 1, color: "rgba(255,179,0,0.75)", fontSize: 10 }}>{m.value}</span>
+            <span style={{ color: "#a0f4ff", fontSize: 10, minWidth: 100 }}>{m.key}</span>
+            <span style={{ flex: 1, color: "rgba(0,212,255,0.75)", fontSize: 10 }}>{m.value}</span>
             <button onClick={() => remove(m.key)} style={{
               fontSize: 8, padding: "2px 8px",
               background: "transparent", border: "1px solid rgba(255,68,0,0.25)",
@@ -228,37 +228,37 @@ function TasksSection() {
       <SectionHeader title="TASK MEMORY" icon="⊞" />
       <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
         <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="task title"
-          style={{ flex: 2, background: "rgba(255,179,0,0.03)", border: "1px solid rgba(255,179,0,0.15)", borderRadius: 3, padding: "6px 10px", color: "rgba(255,230,102,0.9)", fontSize: 11, fontFamily: "inherit", outline: "none", caretColor: "#ffb300" }}
-          onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.4)"; }}
-          onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.15)"; }}
+          style={{ flex: 2, background: "rgba(0,212,255,0.03)", border: "1px solid rgba(0,212,255,0.15)", borderRadius: 3, padding: "6px 10px", color: "rgba(160,244,255,0.9)", fontSize: 11, fontFamily: "inherit", outline: "none", caretColor: "#00d4ff" }}
+          onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(0,212,255,0.4)"; }}
+          onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(0,212,255,0.15)"; }}
         />
         <input value={detail} onChange={(e) => setDetail(e.target.value)} placeholder="detail (optional)"
           onKeyDown={(e) => e.key === "Enter" && add()}
-          style={{ flex: 3, background: "rgba(255,179,0,0.03)", border: "1px solid rgba(255,179,0,0.15)", borderRadius: 3, padding: "6px 10px", color: "rgba(255,230,102,0.9)", fontSize: 11, fontFamily: "inherit", outline: "none", caretColor: "#ffb300" }}
-          onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.4)"; }}
-          onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.15)"; }}
+          style={{ flex: 3, background: "rgba(0,212,255,0.03)", border: "1px solid rgba(0,212,255,0.15)", borderRadius: 3, padding: "6px 10px", color: "rgba(160,244,255,0.9)", fontSize: 11, fontFamily: "inherit", outline: "none", caretColor: "#00d4ff" }}
+          onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(0,212,255,0.4)"; }}
+          onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(0,212,255,0.15)"; }}
         />
         <button onClick={add} disabled={loading} style={{
           padding: "6px 14px", fontSize: 8, letterSpacing: 2,
-          background: "rgba(255,179,0,0.08)", border: "1px solid rgba(255,179,0,0.3)",
-          color: "#ffb300", borderRadius: 3, cursor: "pointer", fontFamily: "inherit",
+          background: "rgba(0,212,255,0.08)", border: "1px solid rgba(0,212,255,0.3)",
+          color: "#00d4ff", borderRadius: 3, cursor: "pointer", fontFamily: "inherit",
         }}>
           ADD
         </button>
       </div>
 
       {tasks.length === 0
-        ? <div style={{ fontSize: 9, color: "rgba(255,179,0,0.25)", fontStyle: "italic" }}>No open tasks.</div>
+        ? <div style={{ fontSize: 9, color: "rgba(0,212,255,0.25)", fontStyle: "italic" }}>No open tasks.</div>
         : tasks.map((t) => (
           <div key={t.id} style={{
             display: "flex", alignItems: "flex-start", gap: 10,
             padding: "8px 12px", marginBottom: 4,
-            background: "rgba(255,179,0,0.02)", border: "1px solid rgba(255,179,0,0.07)",
+            background: "rgba(0,212,255,0.02)", border: "1px solid rgba(0,212,255,0.07)",
             borderRadius: 3,
           }}>
             <div style={{ flex: 1 }}>
-              <div style={{ color: "#ffe566", fontSize: 10 }}>{t.title}</div>
-              {t.detail && <div style={{ color: "rgba(255,179,0,0.45)", fontSize: 9, marginTop: 2 }}>{t.detail}</div>}
+              <div style={{ color: "#a0f4ff", fontSize: 10 }}>{t.title}</div>
+              {t.detail && <div style={{ color: "rgba(0,212,255,0.45)", fontSize: 9, marginTop: 2 }}>{t.detail}</div>}
             </div>
             <button onClick={() => done(t.id)} style={{
               fontSize: 7, padding: "2px 8px",
@@ -296,13 +296,13 @@ function VoiceSection() {
 
   const Row = ({ label, children }: { label: string; children: React.ReactNode }) => (
     <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
-      <span style={{ fontSize: 8, letterSpacing: 3, color: "rgba(255,179,0,0.4)", minWidth: 80 }}>{label}</span>
+      <span style={{ fontSize: 8, letterSpacing: 3, color: "rgba(0,212,255,0.4)", minWidth: 80 }}>{label}</span>
       {children}
     </div>
   );
 
   const SliderStyle = {
-    flex: 1, accentColor: "#ffb300",
+    flex: 1, accentColor: "#00d4ff",
     background: "transparent", cursor: "pointer",
   } as React.CSSProperties;
 
@@ -310,21 +310,21 @@ function VoiceSection() {
 
   return (
     <div style={{ marginBottom: 28 }}>
-      <div style={{ fontSize: 8, letterSpacing: 6, marginBottom: 16, color: "rgba(255,179,0,0.35)", borderBottom: "1px solid rgba(255,179,0,0.06)", paddingBottom: 10 }}>
+      <div style={{ fontSize: 8, letterSpacing: 6, marginBottom: 16, color: "rgba(0,212,255,0.35)", borderBottom: "1px solid rgba(0,212,255,0.06)", paddingBottom: 10 }}>
         VOICE INTERFACE
       </div>
 
       <Row label="ENABLED">
         <button onClick={() => setVoiceEnabled(!voiceEnabled)} style={{
           padding: "4px 14px", fontSize: 8, letterSpacing: 3,
-          background: voiceEnabled ? "rgba(0,255,136,0.08)" : "rgba(255,179,0,0.06)",
-          border: `1px solid ${voiceEnabled ? "rgba(0,255,136,0.3)" : "rgba(255,179,0,0.2)"}`,
-          color: voiceEnabled ? "#00ff88" : "rgba(255,179,0,0.4)",
+          background: voiceEnabled ? "rgba(0,255,136,0.08)" : "rgba(0,212,255,0.06)",
+          border: `1px solid ${voiceEnabled ? "rgba(0,255,136,0.3)" : "rgba(0,212,255,0.2)"}`,
+          color: voiceEnabled ? "#00ff88" : "rgba(0,212,255,0.4)",
           borderRadius: 3, cursor: "pointer", fontFamily: "inherit",
         }}>
           {voiceEnabled ? "ON" : "OFF"}
         </button>
-        <span style={{ fontSize: 9, color: "rgba(255,179,0,0.3)" }}>
+        <span style={{ fontSize: 9, color: "rgba(0,212,255,0.3)" }}>
           {voiceEnabled ? 'Say "Hey T" to activate' : "Voice input disabled"}
         </span>
       </Row>
@@ -335,7 +335,7 @@ function VoiceSection() {
           onChange={(e) => update({ rate: parseFloat(e.target.value) })}
           style={SliderStyle}
         />
-        <span style={{ fontSize: 10, color: "#ffb300", minWidth: 32 }}>{voiceSettings.rate.toFixed(1)}x</span>
+        <span style={{ fontSize: 10, color: "#00d4ff", minWidth: 32 }}>{voiceSettings.rate.toFixed(1)}x</span>
       </Row>
 
       <Row label="PITCH">
@@ -344,7 +344,7 @@ function VoiceSection() {
           onChange={(e) => update({ pitch: parseFloat(e.target.value) })}
           style={SliderStyle}
         />
-        <span style={{ fontSize: 10, color: "#ffb300", minWidth: 32 }}>{voiceSettings.pitch.toFixed(1)}</span>
+        <span style={{ fontSize: 10, color: "#00d4ff", minWidth: 32 }}>{voiceSettings.pitch.toFixed(1)}</span>
       </Row>
 
       <Row label="VOICE">
@@ -352,9 +352,9 @@ function VoiceSection() {
           value={voiceSettings.voiceName}
           onChange={(e) => update({ voiceName: e.target.value })}
           style={{
-            flex: 1, background: "rgba(255,179,0,0.03)",
-            border: "1px solid rgba(255,179,0,0.15)", borderRadius: 3,
-            padding: "5px 8px", color: "rgba(255,230,102,0.9)",
+            flex: 1, background: "rgba(0,212,255,0.03)",
+            border: "1px solid rgba(0,212,255,0.15)", borderRadius: 3,
+            padding: "5px 8px", color: "rgba(160,244,255,0.9)",
             fontSize: 10, fontFamily: "inherit", outline: "none", cursor: "pointer",
           }}
         >
@@ -368,7 +368,7 @@ function VoiceSection() {
       </Row>
 
       {voices.length === 0 && (
-        <div style={{ fontSize: 9, color: "rgba(255,179,0,0.3)", fontStyle: "italic", marginTop: -8, marginBottom: 8 }}>
+        <div style={{ fontSize: 9, color: "rgba(0,212,255,0.3)", fontStyle: "italic", marginTop: -8, marginBottom: 8 }}>
           No voices loaded. Voice synthesis may not be available in this environment.
         </div>
       )}
@@ -383,7 +383,7 @@ export function SettingsPanel() {
     <div style={{ height: "100%", overflowY: "auto", padding: "24px 28px" }}>
       <div style={{
         fontSize: 8, letterSpacing: 6, marginBottom: 24,
-        color: "rgba(255,179,0,0.35)", borderBottom: "1px solid rgba(255,179,0,0.06)",
+        color: "rgba(0,212,255,0.35)", borderBottom: "1px solid rgba(0,212,255,0.06)",
         paddingBottom: 12,
       }}>
         T · CONFIGURATION & MEMORY

@@ -4,7 +4,7 @@ import { create } from "zustand";
 
 export type VisualizerMode = "idle" | "listening" | "speaking";
 export type MessageRole    = "user" | "assistant";
-export type ActivePanel    = "chat" | "security" | "system" | "network" | "settings";
+export type ActivePanel    = "chat" | "security" | "system" | "network" | "settings" | "hardware";
 
 export interface Message {
   id:        string;

@@ -1,6 +1,7 @@
 import asyncio
 import json
 import uuid
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from . import engine
@@ -8,7 +9,16 @@ from .logger import get_logger
 
 log = get_logger("ws_server")
 
-app = FastAPI(title="T Brain", docs_url=None, redoc_url=None)
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    from proactive.engine import start as start_proactive
+    await start_proactive()
+    log.info("proactive engine running")
+    yield
+
+
+app = FastAPI(title="T Brain", lifespan=_lifespan, docs_url=None, redoc_url=None)
 
 
 @dataclass

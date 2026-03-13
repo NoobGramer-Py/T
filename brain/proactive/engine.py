@@ -6,7 +6,6 @@ and broadcasts all alerts to connected Tauri clients.
 """
 
 import asyncio
-import time
 from .monitor     import SystemMonitor
 from .alerts      import AlertManager
 from .suggestions import SuggestionEngine

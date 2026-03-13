@@ -9,11 +9,11 @@ import { SecurityPanel } from "./components/security/SecurityPanel";
 import { SystemPanel } from "./components/system/SystemPanel";
 import { NetworkPanel } from "./components/network/NetworkPanel";
 import { SettingsPanel } from "./components/settings/SettingsPanel";
+import { HardwarePanel } from "./components/hardware/HardwarePanel";
 
 export default function App() {
   const activePanel = useTStore((s) => s.activePanel);
 
-  // Global hooks — run once at app level
   useSystemStats(2000);
   useMemoryBoot();
   useBrainConnection();
@@ -25,20 +25,34 @@ export default function App() {
       className="scanline-overlay"
       style={{
         width: "100vw", height: "100vh",
-        background: "radial-gradient(ellipse at 50% 50%, #020a14 0%, #000409 100%)",
+        background: "radial-gradient(ellipse at 30% 40%, #001428 0%, #000810 45%, #000006 100%)",
         overflow: "hidden", position: "relative",
       }}
     >
-      {/* CRT scanline grid */}
+      {/* CRT scanline raster */}
       <div style={{
         position: "fixed", inset: 0, zIndex: 1, pointerEvents: "none",
-        background: "repeating-linear-gradient(0deg, transparent 0px, transparent 3px, rgba(255,179,0,0.008) 3px, rgba(255,179,0,0.008) 4px)",
+        background: "repeating-linear-gradient(0deg, transparent 0px, transparent 3px, rgba(0,212,255,0.007) 3px, rgba(0,212,255,0.007) 4px)",
       }} />
 
-      {/* Radial vignette */}
+      {/* Holographic vignette */}
       <div style={{
         position: "fixed", inset: 0, zIndex: 2, pointerEvents: "none",
-        background: "radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.55) 100%)",
+        background: "radial-gradient(ellipse at center, transparent 40%, rgba(0,0,12,0.65) 100%)",
+      }} />
+
+      {/* Arc glow — top left */}
+      <div style={{
+        position: "fixed", top: -120, left: -80, zIndex: 0, pointerEvents: "none",
+        width: 400, height: 400, borderRadius: "50%",
+        background: "radial-gradient(ellipse, rgba(0,136,204,0.06) 0%, transparent 70%)",
+      }} />
+
+      {/* Arc glow — bottom right */}
+      <div style={{
+        position: "fixed", bottom: -100, right: -60, zIndex: 0, pointerEvents: "none",
+        width: 350, height: 350, borderRadius: "50%",
+        background: "radial-gradient(ellipse, rgba(0,212,255,0.04) 0%, transparent 70%)",
       }} />
 
       <TopBar />
@@ -54,6 +68,7 @@ export default function App() {
         {activePanel === "security" && <SecurityPanel />}
         {activePanel === "system"   && <SystemPanel />}
         {activePanel === "network"  && <NetworkPanel />}
+        {activePanel === "hardware" && <HardwarePanel />}
         {activePanel === "settings" && <SettingsPanel />}
       </div>
     </div>

@@ -7,7 +7,6 @@ Runs inside helper.py (elevated). Returns structured text results.
 All temp files use safety.temp_path() and are cleaned up by session.kill().
 """
 
-import asyncio
 import os
 import re
 import sqlite3

@@ -1,131 +1,146 @@
 @import "tailwindcss";
 
+/* ── JARVIS Color System ───────────────────────────────────────────────────── */
 :root {
-  --gold:        #ffb300;
-  --gold-bright: #ffe566;
-  --gold-deep:   #ff6e00;
-  --gold-dim:    rgba(255, 179, 0, 0.15);
-  --gold-glow:   rgba(255, 179, 0, 0.35);
-  --bg:          #000409;
-  --panel-bg:    rgba(255, 179, 0, 0.03);
-  --panel-border: rgba(255, 179, 0, 0.12);
-  --text-primary: rgba(255, 179, 0, 0.92);
-  --text-muted:   rgba(255, 179, 0, 0.4);
-  --threat-low:   #00ff88;
-  --threat-mid:   #ffb300;
-  --threat-high:  #ff4400;
+  --j:            #00d4ff;
+  --j-bright:     #a0f4ff;
+  --j-deep:       #0088cc;
+  --j-deeper:     #004488;
+  --j-dim:        rgba(0, 212, 255, 0.10);
+  --j-glow:       rgba(0, 212, 255, 0.30);
+  --j-glow2:      rgba(0, 212, 255, 0.06);
+  --bg:           #000a15;
+  --bg2:          #00060f;
+  --panel-bg:     rgba(0, 212, 255, 0.018);
+  --panel-border: rgba(0, 212, 255, 0.10);
+  --text-primary: rgba(0, 212, 255, 0.90);
+  --text-muted:   rgba(0, 212, 255, 0.38);
+  --text-bright:  rgba(160, 244, 255, 0.95);
+  --ok:    #00ff88;
+  --warn:  #ffb300;
+  --crit:  #ff3300;
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+/* ── Reset ─────────────────────────────────────────────────────────────────── */
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body, #root {
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
+  width: 100%; height: 100%; overflow: hidden;
   background: var(--bg);
   color: var(--text-primary);
   font-family: 'Courier New', Courier, monospace;
 }
 
-/* ── Scrollbar ── */
-::-webkit-scrollbar { width: 4px; }
+/* ── Scrollbar ─────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 3px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--gold-dim); border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: var(--gold-glow); }
+::-webkit-scrollbar-thumb { background: rgba(0,212,255,0.14); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0,212,255,0.32); }
 
-/* ── Selection ── */
-::selection { background: rgba(255, 179, 0, 0.2); color: var(--gold-bright); }
+/* ── Selection ─────────────────────────────────────────────────────────────── */
+::selection { background: rgba(0,212,255,0.16); color: var(--j-bright); }
 
-/* ── HUD panel base ── */
+/* ── HUD panel — corner brackets ──────────────────────────────────────────── */
 .hud-panel {
   background: var(--panel-bg);
   border: 1px solid var(--panel-border);
   position: relative;
 }
-
 .hud-panel::before,
 .hud-panel::after {
   content: '';
   position: absolute;
-  width: 8px;
-  height: 8px;
-  border-color: var(--gold);
+  width: 9px; height: 9px;
+  border-color: var(--j);
   border-style: solid;
-  opacity: 0.6;
+  opacity: 0.5;
 }
-
 .hud-panel::before { top: -1px; left: -1px;  border-width: 1px 0 0 1px; }
 .hud-panel::after  { top: -1px; right: -1px; border-width: 1px 1px 0 0; }
 
-/* ── Glowing text ── */
-.glow-text {
-  text-shadow:
-    0 0 8px var(--gold),
-    0 0 20px rgba(255, 179, 0, 0.4);
+/* ── Blueprint grid background ─────────────────────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(0,212,255,0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,212,255,0.022) 1px, transparent 1px);
+  background-size: 44px 44px;
 }
 
-.glow-text-dim {
-  text-shadow: 0 0 6px rgba(255, 179, 0, 0.3);
-}
-
-/* ── Animated scanline ── */
+/* ── Scanline sweep ────────────────────────────────────────────────────────── */
 @keyframes scanline-move {
   0%   { transform: translateY(-100%); opacity: 0; }
-  10%  { opacity: 1; }
-  90%  { opacity: 1; }
-  100% { transform: translateY(100vh); opacity: 0; }
+  8%   { opacity: 1; }
+  92%  { opacity: 1; }
+  100% { transform: translateY(100vh);  opacity: 0; }
 }
-
 .scanline-overlay::after {
   content: '';
-  position: fixed;
-  top: 0; left: 0; right: 0;
-  height: 2px;
-  background: linear-gradient(transparent, rgba(255,179,0,0.06), transparent);
-  animation: scanline-move 6s linear infinite;
-  pointer-events: none;
-  z-index: 9999;
+  position: fixed; top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(0,212,255,0.5) 50%, transparent 100%);
+  animation: scanline-move 9s linear infinite;
+  pointer-events: none; z-index: 9999;
 }
 
-/* ── Gold blink cursor ── */
+/* ── Glow text ─────────────────────────────────────────────────────────────── */
+.glow-text     { text-shadow: 0 0 8px var(--j), 0 0 24px rgba(0,212,255,0.4); }
+.glow-text-dim { text-shadow: 0 0 6px rgba(0,212,255,0.26); }
+
+/* ── Animations ────────────────────────────────────────────────────────────── */
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in-up { animation: fade-in-up 0.3s ease forwards; }
+
+@keyframes ring-pulse {
+  0%   { transform: scale(1);   opacity: 0.55; }
+  100% { transform: scale(1.9); opacity: 0; }
+}
+.ring-pulse { animation: ring-pulse 1.5s ease-out infinite; }
+
+@keyframes ping {
+  75%, 100% { transform: scale(2.2); opacity: 0; }
+}
+
 @keyframes blink {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0; }
 }
-
 .cursor-blink::after {
-  content: '█';
+  content: '▋';
   animation: blink 1s step-end infinite;
-  color: var(--gold);
-  font-size: 0.75em;
-  margin-left: 2px;
+  color: var(--j); font-size: 0.7em; margin-left: 2px;
 }
 
-/* ── Fade-in ── */
-@keyframes fade-in-up {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0);   }
+@keyframes data-flicker {
+  0%, 100% { opacity: 1; }
+  92% { opacity: 1; } 93% { opacity: 0.4; } 94% { opacity: 1; }
+  97% { opacity: 0.7; } 98% { opacity: 1; }
+}
+.data-flicker { animation: data-flicker 6s ease infinite; }
+
+@keyframes arc-spin     { from { transform: rotate(0deg); }   to { transform: rotate(360deg); } }
+@keyframes arc-spin-rev { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
+
+@keyframes pulse-voice {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(1.5); }
 }
 
-.fade-in-up {
-  animation: fade-in-up 0.35s ease forwards;
+@keyframes pulse-dot {
+  0%, 80%, 100% { transform: scale(0.55); opacity: 0.3; }
+  40%            { transform: scale(1);    opacity: 1; }
 }
 
-/* ── Pulse ring ── */
-@keyframes ring-pulse {
-  0%   { transform: scale(1);   opacity: 0.7; }
-  100% { transform: scale(1.8); opacity: 0;   }
+@keyframes hex-pulse {
+  0%, 100% { opacity: 0.05; }
+  50%       { opacity: 0.13; }
 }
 
-.ring-pulse {
-  animation: ring-pulse 1.4s ease-out infinite;
-}
-
-/* ── Voice ping animation ── */
-@keyframes ping {
-  75%, 100% { transform: scale(2); opacity: 0; }
+@keyframes status-march {
+  0%   { background-position: 0 0; }
+  100% { background-position: 20px 0; }
 }

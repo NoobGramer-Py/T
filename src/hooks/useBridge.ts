@@ -56,7 +56,13 @@ export function useBrainVoice() {
         if (!audioCtxRef.current) {
           audioCtxRef.current = new AudioContext({ sampleRate: sr });
         }
-        const ctx    = audioCtxRef.current;
+        const ctx = audioCtxRef.current;
+
+        // Resume context if suspended (browser autoplay policy)
+        if (ctx.state === "suspended") {
+          await ctx.resume();
+        }
+
         const buffer = await ctx.decodeAudioData(bytes.buffer);
         const source = ctx.createBufferSource();
         source.buffer = buffer;
@@ -383,5 +389,125 @@ export function useLocalAccess() {
     state, readyPayload, progress, fullOutput, hashes,
     summary, error, memoryResult,
     startSession, confirm, cancel, endSession, inspectMemory,
+  };
+}
+
+// ─── Hardware ─────────────────────────────────────────────────────────────────
+
+export type HardwareDevice = {
+  id:           string;
+  type:         "serial" | "mqtt" | "gpio";
+  description:  string;
+  capabilities: string[];
+  connected:    boolean;
+};
+
+export type HardwareResult = {
+  device_id: string;
+  action:    string;
+  result:    string;
+  ts:        number;
+};
+
+export type HardwareConfirmRequest = {
+  device_id: string;
+  action:    string;
+  detail:    string;
+  message:   string;
+};
+
+export function useHardware() {
+  const [devices,        setDevices]        = useState<HardwareDevice[]>([]);
+  const [results,        setResults]        = useState<HardwareResult[]>([]);
+  const [error,          setError]          = useState<string>("");
+  const [confirmRequest, setConfirmRequest] = useState<HardwareConfirmRequest | null>(null);
+  const [serialPorts,    setSerialPorts]    = useState<{ port: string; description: string }[]>([]);
+
+  useEffect(() => {
+    const unsub = bridge.onMessage((msg: BrainMessage) => {
+      switch (msg.type) {
+        case "hardware_devices":
+          setDevices((msg.devices as HardwareDevice[]) ?? []);
+          if (msg.serial_ports) {
+            setSerialPorts(msg.serial_ports as { port: string; description: string }[]);
+          }
+          break;
+        case "hardware_result":
+          setResults((prev) => [
+            {
+              device_id: msg.device_id as string,
+              action:    msg.action    as string ?? "",
+              result:    msg.result   as string,
+              ts:        Date.now(),
+            },
+            ...prev.slice(0, 99),
+          ]);
+          setError("");
+          break;
+        case "hardware_error":
+          setError(msg.error as string);
+          break;
+        case "hardware_confirm":
+          setConfirmRequest({
+            device_id: msg.device_id as string,
+            action:    msg.action    as string,
+            detail:    msg.detail    as string,
+            message:   msg.message   as string,
+          });
+          break;
+        case "hardware_event":
+          setResults((prev) => [
+            {
+              device_id: msg.device_id as string,
+              action:    `event:${msg.topic as string ?? ""}`,
+              result:    msg.payload   as string,
+              ts:        Date.now(),
+            },
+            ...prev.slice(0, 99),
+          ]);
+          break;
+      }
+    });
+    return unsub;
+  }, []);
+
+  const sendCommand = useCallback((device_id: string, action: string, params: Record<string, string | number> = {}) => {
+    bridge.send({ type: "hardware_command", device_id, action, params });
+  }, []);
+
+  const listDevices = useCallback(() => {
+    bridge.send({ type: "hardware_command", action: "list", device_id: "" });
+  }, []);
+
+  const discoverPorts = useCallback(() => {
+    bridge.send({ type: "hardware_command", action: "discover", device_id: "" });
+  }, []);
+
+  const connectDevice = useCallback((device_id: string, port?: string, baud?: number) => {
+    const params: Record<string, string | number> = {};
+    if (port) params.port = port;
+    if (baud) params.baud = baud;
+    bridge.send({ type: "hardware_command", action: "connect", device_id, params });
+  }, []);
+
+  const registerDevice = useCallback((config: Record<string, unknown>) => {
+    bridge.send({ type: "hardware_command", action: "register", device_id: "", config });
+  }, []);
+
+  const unregisterDevice = useCallback((device_id: string) => {
+    bridge.send({ type: "hardware_command", action: "unregister", device_id });
+  }, []);
+
+  const confirmAction = useCallback((confirmed: boolean) => {
+    bridge.send({ type: "hardware_confirm", confirmed });
+    setConfirmRequest(null);
+  }, []);
+
+  const clearError = useCallback(() => setError(""), []);
+
+  return {
+    devices, results, error, confirmRequest, serialPorts,
+    sendCommand, listDevices, discoverPorts, connectDevice,
+    registerDevice, unregisterDevice, confirmAction, clearError,
   };
 }

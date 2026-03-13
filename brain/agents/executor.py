@@ -160,16 +160,14 @@ async def run_agent(
             messages.append({"role": "user", "content": err})
             continue
 
-        # Tools requiring confirmation
+        # Tools requiring confirmation — actually wait for the user's response
         if tool.requires_confirmation:
-            await _emit(client, msg_id, "agent_confirm", {
-                "tool":    tool_name,
-                "params":  params,
-                "message": f"About to run `{tool_name}` with params: {json.dumps(params)}. Confirm?",
-            })
-            # The confirmation response comes as a separate "agent_confirm_response" message
-            # handled by engine. For now we proceed — engine will cancel if user denies.
-            # (Confirmation flow wired in engine._pending_confirmations)
+            confirmed = await _await_confirmation(client, msg_id, tool_name, params)
+            if not confirmed:
+                msg_denied = f"[USER DENIED] Tool '{tool_name}' was not confirmed. Do not retry this tool. Report what was attempted and move on."
+                messages.append({"role": "user", "content": msg_denied})
+                await _emit(client, msg_id, "agent_tool_denied", {"tool": tool_name})
+                continue
 
         await _emit(client, msg_id, "agent_tool_start", {"tool": tool_name, "params": params})
         log.info(f"running tool  name={tool_name}  params={params}")
@@ -214,8 +212,6 @@ def _parse_tool_call(raw: str) -> dict:
     Handles: trailing commas, single quotes, extra whitespace,
     unquoted keys, and other common LLM formatting mistakes.
     """
-    import re as _re
-
     text = raw.strip()
 
     # First try strict JSON
@@ -232,14 +228,14 @@ def _parse_tool_call(raw: str) -> dict:
         pass
 
     # Remove trailing commas before } or ]
-    text = _re.sub(r',\s*([}\]])', r'\1', text)
+    text = re.sub(r',\s*([}\]])', r'\1', text)
     try:
         return json.loads(text)
     except json.JSONDecodeError:
         pass
 
     # Try extracting just the innermost complete JSON object
-    match = _re.search(r'\{[^{}]*\}', text)
+    match = re.search(r'\{[^{}]*\}', text)
     if match:
         try:
             return json.loads(match.group(0))
@@ -247,8 +243,8 @@ def _parse_tool_call(raw: str) -> dict:
             pass
 
     # Last resort: manually extract tool name and params with regex
-    tool_match   = _re.search(r'"tool"\s*:\s*"([^"]+)"', text)
-    params_match = _re.search(r'"params"\s*:\s*(\{[^}]*\})', text)
+    tool_match   = re.search(r'"tool"\s*:\s*"([^"]+)"', text)
+    params_match = re.search(r'"params"\s*:\s*(\{[^}]*\})', text)
 
     if tool_match:
         tool_name = tool_match.group(1)
@@ -258,11 +254,39 @@ def _parse_tool_call(raw: str) -> dict:
                 params = json.loads(params_match.group(1))
             except Exception:
                 # Extract individual params manually
-                for m in _re.finditer(r'"(\w+)"\s*:\s*"([^"]*)"', params_match.group(1)):
+                for m in re.finditer(r'"(\w+)"\s*:\s*"([^"]*)"', params_match.group(1)):
                     params[m.group(1)] = m.group(2)
         return {"tool": tool_name, "params": params}
 
     raise ValueError(f"Cannot parse tool call from: {raw[:200]}")
+
+
+async def _await_confirmation(
+    client: "Client", msg_id: str, tool_name: str, params: dict
+) -> bool:
+    """
+    Send an agent_confirm event and block until the user responds
+    (via agent_confirm_response message routed through engine._pending_confirms).
+    Times out after 60 seconds and defaults to denied.
+    """
+    import core.engine as _engine  # lazy import — no circular dependency at runtime
+
+    loop = asyncio.get_event_loop()
+    fut: asyncio.Future = loop.create_future()
+    _engine._pending_confirms[client.id] = fut
+
+    await _emit(client, msg_id, "agent_confirm", {
+        "tool":    tool_name,
+        "params":  params,
+        "message": f"About to run `{tool_name}` — confirm?",
+    })
+
+    try:
+        return await asyncio.wait_for(fut, timeout=60.0)
+    except asyncio.TimeoutError:
+        return False
+    finally:
+        _engine._pending_confirms.pop(client.id, None)
 
 
 async def _emit(client: "Client", msg_id: str, event_type: str, data: dict) -> None:

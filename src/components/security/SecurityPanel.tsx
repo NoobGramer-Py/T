@@ -14,9 +14,9 @@ type Tab = "scanner" | "iprep" | "ports" | "processes" | "dns" | "vpn" | "firewa
 
 function SectionHeader({ title, icon }: { title: string; icon: string }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, paddingBottom: 8, borderBottom: "1px solid rgba(255,179,0,0.08)" }}>
-      <span style={{ fontSize: 14, color: "#ffb300", textShadow: "0 0 8px #ffb300" }}>{icon}</span>
-      <span style={{ fontSize: 9, letterSpacing: 4, color: "rgba(255,179,0,0.6)" }}>{title}</span>
+    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, paddingBottom: 8, borderBottom: "1px solid rgba(0,212,255,0.08)" }}>
+      <span style={{ fontSize: 14, color: "#00d4ff", textShadow: "0 0 8px #00d4ff" }}>{icon}</span>
+      <span style={{ fontSize: 9, letterSpacing: 4, color: "rgba(0,212,255,0.6)" }}>{title}</span>
     </div>
   );
 }
@@ -27,9 +27,9 @@ function Btn({ label, onClick, disabled = false, danger = false }: {
   return (
     <button onClick={onClick} disabled={disabled} style={{
       padding: "5px 16px", fontSize: 8, letterSpacing: 2,
-      background: danger ? "rgba(255,68,0,0.07)" : "rgba(255,179,0,0.07)",
-      border: `1px solid ${danger ? "rgba(255,68,0,0.3)" : "rgba(255,179,0,0.25)"}`,
-      color: danger ? "#ff4400" : "#ffb300",
+      background: danger ? "rgba(255,68,0,0.07)" : "rgba(0,212,255,0.07)",
+      border: `1px solid ${danger ? "rgba(255,68,0,0.3)" : "rgba(0,212,255,0.25)"}`,
+      color: danger ? "#ff4400" : "#00d4ff",
       borderRadius: 3, cursor: disabled ? "not-allowed" : "pointer",
       fontFamily: "inherit", opacity: disabled ? 0.4 : 1, transition: "all 0.2s",
     }}>
@@ -43,11 +43,11 @@ function Field({ label, value, onChange, type = "text", placeholder = "" }: {
 }) {
   return (
     <div style={{ marginBottom: 12 }}>
-      <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.4)", marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(0,212,255,0.4)", marginBottom: 4 }}>{label}</div>
       <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
-        style={{ width: "100%", background: "rgba(255,179,0,0.03)", border: "1px solid rgba(255,179,0,0.12)", borderRadius: 3, padding: "6px 10px", color: "rgba(255,230,102,0.9)", fontSize: 11, fontFamily: "inherit", outline: "none", caretColor: "#ffb300" }}
-        onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.4)"; }}
-        onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.12)"; }}
+        style={{ width: "100%", background: "rgba(0,212,255,0.03)", border: "1px solid rgba(0,212,255,0.12)", borderRadius: 3, padding: "6px 10px", color: "rgba(160,244,255,0.9)", fontSize: 11, fontFamily: "inherit", outline: "none", caretColor: "#00d4ff" }}
+        onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(0,212,255,0.4)"; }}
+        onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(0,212,255,0.12)"; }}
       />
     </div>
   );
@@ -56,10 +56,10 @@ function Field({ label, value, onChange, type = "text", placeholder = "" }: {
 function StatusBadge({ value, labels }: { value: string; labels: Record<string, string> }) {
   const colors: Record<string, string> = {
     clean: "#00ff88", safe: "#00ff88", low: "#00ff88",
-    suspicious: "#ffb300", unknown: "#ffb300", medium: "#ffb300",
+    suspicious: "#00d4ff", unknown: "#00d4ff", medium: "#00d4ff",
     malicious: "#ff4400", critical: "#ff4400", high: "#ff4400",
   };
-  const color = colors[value.toLowerCase()] ?? "rgba(255,179,0,0.5)";
+  const color = colors[value.toLowerCase()] ?? "rgba(0,212,255,0.5)";
   return (
     <span style={{ fontSize: 8, letterSpacing: 2, padding: "2px 8px", border: `1px solid ${color}`, color, borderRadius: 2, textShadow: `0 0 6px ${color}` }}>
       {labels[value] ?? value.toUpperCase()}
@@ -69,7 +69,7 @@ function StatusBadge({ value, labels }: { value: string; labels: Record<string, 
 
 function ResultBox({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,179,0,0.08)", borderRadius: 3, padding: "14px 16px", marginTop: 14 }}>
+    <div style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(0,212,255,0.08)", borderRadius: 3, padding: "14px 16px", marginTop: 14 }}>
       {children}
     </div>
   );
@@ -102,24 +102,24 @@ function ScannerTab() {
       {error && <div style={{ fontSize: 9, color: "#ff4400", marginTop: 10 }}>{error}</div>}
       {result && (
         <ResultBox>
-          <div style={{ fontSize: 8, letterSpacing: 3, color: "rgba(255,179,0,0.5)", marginBottom: 10 }}>HOST: {result.host}{result.os_guess && ` · OS: ${result.os_guess}`}</div>
+          <div style={{ fontSize: 8, letterSpacing: 3, color: "rgba(0,212,255,0.5)", marginBottom: 10 }}>HOST: {result.host}{result.os_guess && ` · OS: ${result.os_guess}`}</div>
           {result.ports.length === 0
-            ? <div style={{ fontSize: 10, color: "rgba(255,179,0,0.4)" }}>No open ports found.</div>
+            ? <div style={{ fontSize: 10, color: "rgba(0,212,255,0.4)" }}>No open ports found.</div>
             : <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10 }}>
                 <thead>
-                  <tr style={{ color: "rgba(255,179,0,0.4)", fontSize: 8, letterSpacing: 2 }}>
+                  <tr style={{ color: "rgba(0,212,255,0.4)", fontSize: 8, letterSpacing: 2 }}>
                     {["PORT", "STATE", "SERVICE", "VERSION"].map((h) => (
-                      <td key={h} style={{ padding: "4px 8px", borderBottom: "1px solid rgba(255,179,0,0.08)" }}>{h}</td>
+                      <td key={h} style={{ padding: "4px 8px", borderBottom: "1px solid rgba(0,212,255,0.08)" }}>{h}</td>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {result.ports.map((p) => (
-                    <tr key={p.port} style={{ borderBottom: "1px solid rgba(255,179,0,0.04)" }}>
-                      <td style={{ padding: "5px 8px", color: "#ffe566" }}>{p.port}</td>
+                    <tr key={p.port} style={{ borderBottom: "1px solid rgba(0,212,255,0.04)" }}>
+                      <td style={{ padding: "5px 8px", color: "#a0f4ff" }}>{p.port}</td>
                       <td style={{ padding: "5px 8px", color: "#00ff88" }}>{p.state}</td>
-                      <td style={{ padding: "5px 8px", color: "rgba(255,179,0,0.8)" }}>{p.service}</td>
-                      <td style={{ padding: "5px 8px", color: "rgba(255,179,0,0.5)", fontSize: 9 }}>{p.version}</td>
+                      <td style={{ padding: "5px 8px", color: "rgba(0,212,255,0.8)" }}>{p.service}</td>
+                      <td style={{ padding: "5px 8px", color: "rgba(0,212,255,0.5)", fontSize: 9 }}>{p.version}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -151,12 +151,12 @@ function IpRepTab() {
     finally { setLoading(false); }
   };
 
-  const repColors: Record<string, string> = { clean: "#00ff88", suspicious: "#ffb300", malicious: "#ff4400", unknown: "rgba(255,179,0,0.4)" };
+  const repColors: Record<string, string> = { clean: "#00ff88", suspicious: "#00d4ff", malicious: "#ff4400", unknown: "rgba(0,212,255,0.4)" };
 
   return (
     <div>
       <SectionHeader title="IP REPUTATION" icon="◎" />
-      <div style={{ fontSize: 9, color: "rgba(255,179,0,0.35)", marginBottom: 12, lineHeight: 1.6 }}>
+      <div style={{ fontSize: 9, color: "rgba(0,212,255,0.35)", marginBottom: 12, lineHeight: 1.6 }}>
         Powered by AbuseIPDB. Add your key in Settings → Profile → ABUSEIPDB API KEY.
       </div>
       <Field label="IP ADDRESS" value={ip} onChange={setIp} placeholder="8.8.8.8" />
@@ -165,12 +165,12 @@ function IpRepTab() {
       {result && (
         <ResultBox>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
-            <span style={{ fontSize: 13, color: repColors[result.reputation] ?? "#ffb300", textShadow: `0 0 8px ${repColors[result.reputation] ?? "#ffb300"}` }}>
+            <span style={{ fontSize: 13, color: repColors[result.reputation] ?? "#00d4ff", textShadow: `0 0 8px ${repColors[result.reputation] ?? "#00d4ff"}` }}>
               {result.reputation.toUpperCase()}
             </span>
-            <span style={{ fontSize: 9, color: "rgba(255,179,0,0.5)" }}>{result.ip}</span>
+            <span style={{ fontSize: 9, color: "rgba(0,212,255,0.5)" }}>{result.ip}</span>
           </div>
-          <div style={{ fontSize: 10, color: "rgba(255,179,0,0.7)" }}>{result.detail}</div>
+          <div style={{ fontSize: 10, color: "rgba(0,212,255,0.7)" }}>{result.detail}</div>
         </ResultBox>
       )}
     </div>
@@ -196,7 +196,7 @@ function PortsTab() {
   return (
     <div>
       <SectionHeader title="QUICK PORT SCAN" icon="⊹" />
-      <div style={{ fontSize: 9, color: "rgba(255,179,0,0.35)", marginBottom: 12 }}>Checks 17 common ports via TCP connect. No nmap required.</div>
+      <div style={{ fontSize: 9, color: "rgba(0,212,255,0.35)", marginBottom: 12 }}>Checks 17 common ports via TCP connect. No nmap required.</div>
       <Field label="HOST" value={host} onChange={setHost} placeholder="192.168.1.1 or domain.com" />
       <Btn label={loading ? "SCANNING···" : "SCAN PORTS"} onClick={scan} disabled={loading || !host.trim()} />
       {error && <div style={{ fontSize: 9, color: "#ff4400", marginTop: 10 }}>{error}</div>}
@@ -205,10 +205,10 @@ function PortsTab() {
           {result.length === 0
             ? <div style={{ fontSize: 10, color: "#00ff88" }}>All common ports closed or filtered.</div>
             : result.map((p) => (
-              <div key={p.port} style={{ display: "flex", gap: 12, padding: "5px 0", borderBottom: "1px solid rgba(255,179,0,0.05)" }}>
-                <span style={{ color: "#ffe566", minWidth: 50, fontSize: 11 }}>{p.port}</span>
+              <div key={p.port} style={{ display: "flex", gap: 12, padding: "5px 0", borderBottom: "1px solid rgba(0,212,255,0.05)" }}>
+                <span style={{ color: "#a0f4ff", minWidth: 50, fontSize: 11 }}>{p.port}</span>
                 <span style={{ color: "#ff4400", fontSize: 10 }}>OPEN</span>
-                <span style={{ color: "rgba(255,179,0,0.7)", fontSize: 10 }}>{p.service}</span>
+                <span style={{ color: "rgba(0,212,255,0.7)", fontSize: 10 }}>{p.service}</span>
               </div>
             ))
           }
@@ -233,7 +233,7 @@ function ProcessAuditTab() {
   return (
     <div>
       <SectionHeader title="PROCESS AUDIT" icon="⬡" />
-      <div style={{ fontSize: 9, color: "rgba(255,179,0,0.35)", marginBottom: 12 }}>
+      <div style={{ fontSize: 9, color: "rgba(0,212,255,0.35)", marginBottom: 12 }}>
         Detects known malicious tools and anomalous CPU usage patterns.
       </div>
       <Btn label={loading ? "SCANNING···" : "AUDIT PROCESSES"} onClick={run} disabled={loading} />
@@ -242,13 +242,13 @@ function ProcessAuditTab() {
           {result.length === 0
             ? <div style={{ fontSize: 10, color: "#00ff88" }}>✓ No suspicious processes detected.</div>
             : result.map((p) => (
-              <div key={p.pid} style={{ padding: "8px 0", borderBottom: "1px solid rgba(255,179,0,0.06)" }}>
+              <div key={p.pid} style={{ padding: "8px 0", borderBottom: "1px solid rgba(0,212,255,0.06)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
                   <StatusBadge value={p.suspicion} labels={{ critical: "CRITICAL", suspicious: "SUSPICIOUS" }} />
-                  <span style={{ color: "#ffe566", fontSize: 11 }}>{p.name}</span>
-                  <span style={{ color: "rgba(255,179,0,0.4)", fontSize: 9 }}>PID {p.pid}</span>
+                  <span style={{ color: "#a0f4ff", fontSize: 11 }}>{p.name}</span>
+                  <span style={{ color: "rgba(0,212,255,0.4)", fontSize: 9 }}>PID {p.pid}</span>
                 </div>
-                <div style={{ fontSize: 9, color: "rgba(255,179,0,0.6)" }}>{p.reason}</div>
+                <div style={{ fontSize: 9, color: "rgba(0,212,255,0.6)" }}>{p.reason}</div>
               </div>
             ))
           }
@@ -275,7 +275,7 @@ function DnsTab() {
   return (
     <div>
       <SectionHeader title="DNS LEAK TEST" icon="◎" />
-      <div style={{ fontSize: 9, color: "rgba(255,179,0,0.35)", marginBottom: 12 }}>
+      <div style={{ fontSize: 9, color: "rgba(0,212,255,0.35)", marginBottom: 12 }}>
         Checks if your DNS requests are leaking outside your VPN tunnel.
       </div>
       <Btn label={loading ? "TESTING···" : "RUN LEAK TEST"} onClick={check} disabled={loading} />
@@ -287,9 +287,9 @@ function DnsTab() {
               {result.leaking ? "⚠ LEAK DETECTED" : "✓ NO LEAK"}
             </span>
           </div>
-          <div style={{ fontSize: 8, letterSpacing: 3, color: "rgba(255,179,0,0.4)", marginBottom: 8 }}>DNS SERVERS</div>
+          <div style={{ fontSize: 8, letterSpacing: 3, color: "rgba(0,212,255,0.4)", marginBottom: 8 }}>DNS SERVERS</div>
           {result.servers.map((s) => (
-            <div key={s} style={{ fontSize: 10, color: "rgba(255,179,0,0.8)", padding: "3px 0" }}>{s}</div>
+            <div key={s} style={{ fontSize: 10, color: "rgba(0,212,255,0.8)", padding: "3px 0" }}>{s}</div>
           ))}
         </ResultBox>
       )}
@@ -329,8 +329,8 @@ function VpnTab() {
             { label: "PROVIDER",   value: result.provider || "Unknown" },
           ].map(({ label, value }) => (
             <div key={label} style={{ display: "flex", gap: 12, marginBottom: 8 }}>
-              <span style={{ fontSize: 8, letterSpacing: 3, color: "rgba(255,179,0,0.4)", minWidth: 80 }}>{label}</span>
-              <span style={{ fontSize: 10, color: "rgba(255,179,0,0.85)" }}>{value}</span>
+              <span style={{ fontSize: 8, letterSpacing: 3, color: "rgba(0,212,255,0.4)", minWidth: 80 }}>{label}</span>
+              <span style={{ fontSize: 10, color: "rgba(0,212,255,0.85)" }}>{value}</span>
             </div>
           ))}
         </ResultBox>
@@ -365,24 +365,24 @@ function FirewallTab() {
         <Btn label={loading ? "LOADING···" : "LOAD RULES"} onClick={load} disabled={loading} />
         {rules && (
           <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="filter by name..."
-            style={{ flex: 1, background: "rgba(255,179,0,0.03)", border: "1px solid rgba(255,179,0,0.12)", borderRadius: 3, padding: "5px 10px", color: "rgba(255,230,102,0.9)", fontSize: 10, fontFamily: "inherit", outline: "none" }}
-            onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.4)"; }}
-            onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.12)"; }}
+            style={{ flex: 1, background: "rgba(0,212,255,0.03)", border: "1px solid rgba(0,212,255,0.12)", borderRadius: 3, padding: "5px 10px", color: "rgba(160,244,255,0.9)", fontSize: 10, fontFamily: "inherit", outline: "none" }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(0,212,255,0.4)"; }}
+            onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(0,212,255,0.12)"; }}
           />
         )}
       </div>
       {error && <div style={{ fontSize: 9, color: "#ff4400" }}>{error}</div>}
       {rules && (
-        <div style={{ maxHeight: 360, overflowY: "auto", border: "1px solid rgba(255,179,0,0.08)", borderRadius: 3 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px 60px", gap: 8, padding: "6px 12px", borderBottom: "1px solid rgba(255,179,0,0.1)", fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.4)" }}>
+        <div style={{ maxHeight: 360, overflowY: "auto", border: "1px solid rgba(0,212,255,0.08)", borderRadius: 3 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px 60px", gap: 8, padding: "6px 12px", borderBottom: "1px solid rgba(0,212,255,0.1)", fontSize: 7, letterSpacing: 3, color: "rgba(0,212,255,0.4)" }}>
             <span>NAME</span><span>DIRECTION</span><span>ACTION</span><span>STATUS</span>
           </div>
           {filtered.map((r, i) => (
-            <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px 60px", gap: 8, padding: "5px 12px", borderBottom: "1px solid rgba(255,179,0,0.04)", fontSize: 10, alignItems: "center" }}>
-              <span style={{ color: "rgba(255,179,0,0.85)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</span>
-              <span style={{ color: "rgba(255,179,0,0.5)", fontSize: 9 }}>{r.direction}</span>
+            <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px 60px", gap: 8, padding: "5px 12px", borderBottom: "1px solid rgba(0,212,255,0.04)", fontSize: 10, alignItems: "center" }}>
+              <span style={{ color: "rgba(0,212,255,0.85)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</span>
+              <span style={{ color: "rgba(0,212,255,0.5)", fontSize: 9 }}>{r.direction}</span>
               <span style={{ color: r.action.toLowerCase().includes("allow") ? "#00ff88" : "#ff4400", fontSize: 9 }}>{r.action}</span>
-              <span style={{ color: r.enabled ? "#00ff88" : "rgba(255,179,0,0.3)", fontSize: 8 }}>{r.enabled ? "ON" : "OFF"}</span>
+              <span style={{ color: r.enabled ? "#00ff88" : "rgba(0,212,255,0.3)", fontSize: 8 }}>{r.enabled ? "ON" : "OFF"}</span>
             </div>
           ))}
         </div>
@@ -406,28 +406,28 @@ function PasswordTab() {
     finally { setLoading(false); }
   };
 
-  const scoreColors = ["#ff4400", "#ff6600", "#ffb300", "#ffe566", "#00ff88"];
-  const color = result ? scoreColors[result.score] ?? "#ffb300" : "#ffb300";
+  const scoreColors = ["#ff4400", "#ff6600", "#00d4ff", "#a0f4ff", "#00ff88"];
+  const color = result ? scoreColors[result.score] ?? "#00d4ff" : "#00d4ff";
 
   return (
     <div>
       <SectionHeader title="PASSWORD STRENGTH ANALYSER" icon="◎" />
-      <div style={{ fontSize: 9, color: "rgba(255,179,0,0.35)", marginBottom: 12 }}>Password is checked locally — never sent anywhere.</div>
+      <div style={{ fontSize: 9, color: "rgba(0,212,255,0.35)", marginBottom: 12 }}>Password is checked locally — never sent anywhere.</div>
       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.4)", marginBottom: 4 }}>PASSWORD</div>
+          <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(0,212,255,0.4)", marginBottom: 4 }}>PASSWORD</div>
           <input type={show ? "text" : "password"} value={password}
             onChange={(e) => { setPassword(e.target.value); setResult(null); }}
             onKeyDown={(e) => e.key === "Enter" && check()}
             placeholder="Enter password to analyse..."
-            style={{ width: "100%", background: "rgba(255,179,0,0.03)", border: "1px solid rgba(255,179,0,0.12)", borderRadius: 3, padding: "6px 10px", color: "rgba(255,230,102,0.9)", fontSize: 11, fontFamily: "inherit", outline: "none", caretColor: "#ffb300" }}
-            onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.4)"; }}
-            onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.12)"; }}
+            style={{ width: "100%", background: "rgba(0,212,255,0.03)", border: "1px solid rgba(0,212,255,0.12)", borderRadius: 3, padding: "6px 10px", color: "rgba(160,244,255,0.9)", fontSize: 11, fontFamily: "inherit", outline: "none", caretColor: "#00d4ff" }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(0,212,255,0.4)"; }}
+            onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(0,212,255,0.12)"; }}
           />
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <div style={{ height: 16 }} />
-          <button onClick={() => setShow(!show)} style={{ padding: "6px 10px", fontSize: 9, background: "transparent", border: "1px solid rgba(255,179,0,0.15)", color: "rgba(255,179,0,0.5)", cursor: "pointer", borderRadius: 3, fontFamily: "inherit" }}>
+          <button onClick={() => setShow(!show)} style={{ padding: "6px 10px", fontSize: 9, background: "transparent", border: "1px solid rgba(0,212,255,0.15)", color: "rgba(0,212,255,0.5)", cursor: "pointer", borderRadius: 3, fontFamily: "inherit" }}>
             {show ? "HIDE" : "SHOW"}
           </button>
         </div>
@@ -440,18 +440,18 @@ function PasswordTab() {
           <div style={{ marginBottom: 14 }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
               <span style={{ fontSize: 14, color, textShadow: `0 0 8px ${color}` }}>{result.label}</span>
-              <span style={{ fontSize: 10, color: "rgba(255,179,0,0.5)" }}>Entropy: {result.entropy.toFixed(1)} bits</span>
+              <span style={{ fontSize: 10, color: "rgba(0,212,255,0.5)" }}>Entropy: {result.entropy.toFixed(1)} bits</span>
             </div>
-            <div style={{ height: 4, background: "rgba(255,179,0,0.08)", borderRadius: 2 }}>
+            <div style={{ height: 4, background: "rgba(0,212,255,0.08)", borderRadius: 2 }}>
               <div style={{ height: "100%", width: `${(result.score / 4) * 100}%`, background: color, borderRadius: 2, boxShadow: `0 0 8px ${color}`, transition: "width 0.5s ease" }} />
             </div>
           </div>
           {result.feedback.length > 0 && (
             <div>
-              <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.4)", marginBottom: 8 }}>RECOMMENDATIONS</div>
+              <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(0,212,255,0.4)", marginBottom: 8 }}>RECOMMENDATIONS</div>
               {result.feedback.map((f, i) => (
-                <div key={i} style={{ display: "flex", gap: 8, fontSize: 10, color: "rgba(255,179,0,0.75)", marginBottom: 5 }}>
-                  <span style={{ color: "#ffb300" }}>›</span>{f}
+                <div key={i} style={{ display: "flex", gap: 8, fontSize: 10, color: "rgba(0,212,255,0.75)", marginBottom: 5 }}>
+                  <span style={{ color: "#00d4ff" }}>›</span>{f}
                 </div>
               ))}
             </div>
@@ -484,7 +484,7 @@ function UrlTab() {
   return (
     <div>
       <SectionHeader title="URL SAFETY CHECK" icon="⊹" />
-      <div style={{ fontSize: 9, color: "rgba(255,179,0,0.35)", marginBottom: 12 }}>
+      <div style={{ fontSize: 9, color: "rgba(0,212,255,0.35)", marginBottom: 12 }}>
         Powered by VirusTotal. Add your key in Settings → Profile → VIRUSTOTAL API KEY.
       </div>
       <Field label="URL" value={url} onChange={setUrl} placeholder="https://example.com" />
@@ -497,7 +497,7 @@ function UrlTab() {
               {result.safe ? "✓ SAFE" : "⚠ THREAT DETECTED"}
             </span>
           </div>
-          <div style={{ fontSize: 10, color: "rgba(255,179,0,0.7)" }}>{result.detail}</div>
+          <div style={{ fontSize: 10, color: "rgba(0,212,255,0.7)" }}>{result.detail}</div>
         </ResultBox>
       )}
     </div>
@@ -524,8 +524,8 @@ function LogTab() {
   ) ?? [];
 
   const levelColor: Record<string, string> = {
-    error: "#ff4400", warning: "#ffb300", info: "rgba(255,179,0,0.5)",
-    Error: "#ff4400", Warning: "#ffb300", Information: "rgba(255,179,0,0.5)",
+    error: "#ff4400", warning: "#00d4ff", info: "rgba(0,212,255,0.5)",
+    Error: "#ff4400", Warning: "#00d4ff", Information: "rgba(0,212,255,0.5)",
   };
 
   return (
@@ -535,25 +535,25 @@ function LogTab() {
         <Btn label={loading ? "LOADING···" : "LOAD EVENTS"} onClick={load} disabled={loading} />
         {events && (
           <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="filter events..."
-            style={{ flex: 1, background: "rgba(255,179,0,0.03)", border: "1px solid rgba(255,179,0,0.12)", borderRadius: 3, padding: "5px 10px", color: "rgba(255,230,102,0.9)", fontSize: 10, fontFamily: "inherit", outline: "none" }}
-            onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.4)"; }}
-            onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(255,179,0,0.12)"; }}
+            style={{ flex: 1, background: "rgba(0,212,255,0.03)", border: "1px solid rgba(0,212,255,0.12)", borderRadius: 3, padding: "5px 10px", color: "rgba(160,244,255,0.9)", fontSize: 10, fontFamily: "inherit", outline: "none" }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(0,212,255,0.4)"; }}
+            onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(0,212,255,0.12)"; }}
           />
         )}
       </div>
       {error && <div style={{ fontSize: 9, color: "#ff4400" }}>{error}</div>}
       {events && (
-        <div style={{ maxHeight: 380, overflowY: "auto", border: "1px solid rgba(255,179,0,0.08)", borderRadius: 3 }}>
+        <div style={{ maxHeight: 380, overflowY: "auto", border: "1px solid rgba(0,212,255,0.08)", borderRadius: 3 }}>
           {filtered.length === 0
-            ? <div style={{ padding: 14, fontSize: 10, color: "rgba(255,179,0,0.4)" }}>No events found.</div>
+            ? <div style={{ padding: 14, fontSize: 10, color: "rgba(0,212,255,0.4)" }}>No events found.</div>
             : filtered.map((ev, i) => (
-              <div key={i} style={{ padding: "8px 12px", borderBottom: "1px solid rgba(255,179,0,0.04)" }}>
+              <div key={i} style={{ padding: "8px 12px", borderBottom: "1px solid rgba(0,212,255,0.04)" }}>
                 <div style={{ display: "flex", gap: 10, marginBottom: 3 }}>
-                  <span style={{ fontSize: 8, color: levelColor[ev.level] ?? "rgba(255,179,0,0.5)", letterSpacing: 1 }}>{ev.level.toUpperCase()}</span>
-                  <span style={{ fontSize: 8, color: "rgba(255,179,0,0.35)" }}>{ev.source}</span>
-                  {ev.time && <span style={{ fontSize: 8, color: "rgba(255,179,0,0.25)", marginLeft: "auto" }}>{ev.time}</span>}
+                  <span style={{ fontSize: 8, color: levelColor[ev.level] ?? "rgba(0,212,255,0.5)", letterSpacing: 1 }}>{ev.level.toUpperCase()}</span>
+                  <span style={{ fontSize: 8, color: "rgba(0,212,255,0.35)" }}>{ev.source}</span>
+                  {ev.time && <span style={{ fontSize: 8, color: "rgba(0,212,255,0.25)", marginLeft: "auto" }}>{ev.time}</span>}
                 </div>
-                <div style={{ fontSize: 10, color: "rgba(255,179,0,0.7)", lineHeight: 1.5 }}>{ev.message}</div>
+                <div style={{ fontSize: 10, color: "rgba(0,212,255,0.7)", lineHeight: 1.5 }}>{ev.message}</div>
               </div>
             ))
           }
@@ -582,12 +582,12 @@ function IpIntelTab() {
     finally { setLoading(false); }
   };
 
-  const scoreColor = (s: number) => s > 75 ? "#ff4400" : s > 25 ? "#ffb300" : "#00ff88";
+  const scoreColor = (s: number) => s > 75 ? "#ff4400" : s > 25 ? "#00d4ff" : "#00ff88";
 
   return (
     <div>
       <SectionHeader title="IP INTELLIGENCE" icon="◉" />
-      <div style={{ fontSize: 9, color: "rgba(255,179,0,0.35)", marginBottom: 12 }}>
+      <div style={{ fontSize: 9, color: "rgba(0,212,255,0.35)", marginBottom: 12 }}>
         Geolocation · ASN · Reverse DNS · Abuse Score · Open Ports
       </div>
       <Field label="TARGET IP" value={ip} onChange={setIp} placeholder="1.1.1.1" />
@@ -607,31 +607,31 @@ function IpIntelTab() {
               ["COORDS",   `${result.latitude.toFixed(4)}, ${result.longitude.toFixed(4)}`],
             ].map(([k, v]) => (
               <div key={k}>
-                <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.35)", marginBottom: 2 }}>{k}</div>
-                <div style={{ fontSize: 10, color: "rgba(255,230,102,0.85)", wordBreak: "break-all" }}>{v || "—"}</div>
+                <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(0,212,255,0.35)", marginBottom: 2 }}>{k}</div>
+                <div style={{ fontSize: 10, color: "rgba(160,244,255,0.85)", wordBreak: "break-all" }}>{v || "—"}</div>
               </div>
             ))}
           </div>
 
-          <div style={{ borderTop: "1px solid rgba(255,179,0,0.08)", paddingTop: 12, marginBottom: 12 }}>
-            <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.35)", marginBottom: 6 }}>ABUSE SCORE</div>
+          <div style={{ borderTop: "1px solid rgba(0,212,255,0.08)", paddingTop: 12, marginBottom: 12 }}>
+            <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(0,212,255,0.35)", marginBottom: 6 }}>ABUSE SCORE</div>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <span style={{ fontSize: 22, fontWeight: "bold", color: scoreColor(result.abuse_score), textShadow: `0 0 12px ${scoreColor(result.abuse_score)}` }}>
                 {result.abuse_score}%
               </span>
-              <span style={{ fontSize: 9, color: "rgba(255,179,0,0.5)" }}>{result.abuse_detail}</span>
+              <span style={{ fontSize: 9, color: "rgba(0,212,255,0.5)" }}>{result.abuse_detail}</span>
             </div>
           </div>
 
-          <div style={{ borderTop: "1px solid rgba(255,179,0,0.08)", paddingTop: 12 }}>
-            <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.35)", marginBottom: 6 }}>
+          <div style={{ borderTop: "1px solid rgba(0,212,255,0.08)", paddingTop: 12 }}>
+            <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(0,212,255,0.35)", marginBottom: 6 }}>
               OPEN PORTS ({result.open_ports.length})
             </div>
             {result.open_ports.length === 0
               ? <div style={{ fontSize: 9, color: "#00ff88" }}>No common ports open</div>
               : <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                   {result.open_ports.map((p) => (
-                    <span key={p} style={{ fontSize: 9, padding: "2px 8px", border: "1px solid rgba(255,68,0,0.4)", color: "#ff6e00", borderRadius: 2 }}>
+                    <span key={p} style={{ fontSize: 9, padding: "2px 8px", border: "1px solid rgba(255,68,0,0.4)", color: "#0088cc", borderRadius: 2 }}>
                       {p}
                     </span>
                   ))}
@@ -666,7 +666,7 @@ function EmailOsintTab() {
   return (
     <div>
       <SectionHeader title="EMAIL OSINT" icon="✉" />
-      <div style={{ fontSize: 9, color: "rgba(255,179,0,0.35)", marginBottom: 12 }}>
+      <div style={{ fontSize: 9, color: "rgba(0,212,255,0.35)", marginBottom: 12 }}>
         Breach history · MX records · Gravatar profile · Domain intel
       </div>
       <Field label="EMAIL ADDRESS" value={email} onChange={setEmail} placeholder="target@example.com" />
@@ -678,18 +678,18 @@ function EmailOsintTab() {
           {/* Validity + Domain */}
           <div style={{ display: "flex", gap: 16, marginBottom: 14, flexWrap: "wrap" }}>
             <div>
-              <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.35)", marginBottom: 3 }}>STATUS</div>
+              <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(0,212,255,0.35)", marginBottom: 3 }}>STATUS</div>
               <span style={{ fontSize: 10, color: result.valid ? "#00ff88" : "#ff4400" }}>
                 {result.valid ? "VALID FORMAT" : "INVALID FORMAT"}
               </span>
             </div>
             <div>
-              <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.35)", marginBottom: 3 }}>DOMAIN</div>
-              <span style={{ fontSize: 10, color: "rgba(255,230,102,0.85)" }}>{result.domain || "—"}</span>
+              <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(0,212,255,0.35)", marginBottom: 3 }}>DOMAIN</div>
+              <span style={{ fontSize: 10, color: "rgba(160,244,255,0.85)" }}>{result.domain || "—"}</span>
             </div>
             <div>
-              <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.35)", marginBottom: 3 }}>GRAVATAR</div>
-              <span style={{ fontSize: 10, color: result.gravatar_url ? "#00ff88" : "rgba(255,179,0,0.4)" }}>
+              <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(0,212,255,0.35)", marginBottom: 3 }}>GRAVATAR</div>
+              <span style={{ fontSize: 10, color: result.gravatar_url ? "#00ff88" : "rgba(0,212,255,0.4)" }}>
                 {result.gravatar_url ? "PROFILE EXISTS" : "NOT FOUND"}
               </span>
             </div>
@@ -698,43 +698,43 @@ function EmailOsintTab() {
           {/* Gravatar image */}
           {result.gravatar_url && (
             <div style={{ marginBottom: 14 }}>
-              <img src={result.gravatar_url} alt="gravatar" style={{ width: 60, height: 60, borderRadius: 4, border: "1px solid rgba(255,179,0,0.2)" }} />
+              <img src={result.gravatar_url} alt="gravatar" style={{ width: 60, height: 60, borderRadius: 4, border: "1px solid rgba(0,212,255,0.2)" }} />
             </div>
           )}
 
           {/* MX Records */}
           {result.mx_records.length > 0 && (
             <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.35)", marginBottom: 6 }}>MX RECORDS</div>
+              <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(0,212,255,0.35)", marginBottom: 6 }}>MX RECORDS</div>
               {result.mx_records.map((mx, i) => (
-                <div key={i} style={{ fontSize: 9, color: "rgba(255,179,0,0.65)", marginBottom: 2 }}>{mx}</div>
+                <div key={i} style={{ fontSize: 9, color: "rgba(0,212,255,0.65)", marginBottom: 2 }}>{mx}</div>
               ))}
             </div>
           )}
 
           {/* Breach summary */}
-          <div style={{ borderTop: "1px solid rgba(255,179,0,0.08)", paddingTop: 12 }}>
+          <div style={{ borderTop: "1px solid rgba(0,212,255,0.08)", paddingTop: 12 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
               <span style={{ fontSize: 18, fontWeight: "bold", color: result.breach_count > 0 ? "#ff4400" : "#00ff88", textShadow: result.breach_count > 0 ? "0 0 12px #ff4400" : "0 0 8px #00ff88" }}>
                 {result.breach_count}
               </span>
-              <span style={{ fontSize: 8, letterSpacing: 3, color: "rgba(255,179,0,0.5)" }}>
+              <span style={{ fontSize: 8, letterSpacing: 3, color: "rgba(0,212,255,0.5)" }}>
                 {result.breach_count === 0 ? "NO BREACHES FOUND" : "BREACHES DETECTED"}
               </span>
             </div>
             {result.breaches.map((b) => (
               <div key={b.name} style={{ marginBottom: 10, padding: "8px 10px", background: "rgba(255,68,0,0.04)", border: "1px solid rgba(255,68,0,0.15)", borderRadius: 3 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                  <span style={{ fontSize: 10, color: "#ff6e00", fontWeight: "bold" }}>{b.name}</span>
-                  <span style={{ fontSize: 8, color: "rgba(255,179,0,0.4)" }}>{b.breach_date}</span>
+                  <span style={{ fontSize: 10, color: "#0088cc", fontWeight: "bold" }}>{b.name}</span>
+                  <span style={{ fontSize: 8, color: "rgba(0,212,255,0.4)" }}>{b.breach_date}</span>
                 </div>
-                <div style={{ fontSize: 8, color: "rgba(255,179,0,0.5)", marginBottom: 4 }}>{b.domain}</div>
+                <div style={{ fontSize: 8, color: "rgba(0,212,255,0.5)", marginBottom: 4 }}>{b.domain}</div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                   {b.data_classes.map((dc) => (
                     <span key={dc} style={{ fontSize: 7, padding: "1px 6px", border: "1px solid rgba(255,68,0,0.25)", color: "#ff4400", borderRadius: 2 }}>{dc}</span>
                   ))}
                 </div>
-                <div style={{ fontSize: 8, color: "rgba(255,179,0,0.35)", marginTop: 4 }}>
+                <div style={{ fontSize: 8, color: "rgba(0,212,255,0.35)", marginTop: 4 }}>
                   {b.pwn_count.toLocaleString()} accounts compromised
                 </div>
               </div>
@@ -767,16 +767,16 @@ function CveTab() {
     switch (s.toUpperCase()) {
       case "CRITICAL": return "#ff0000";
       case "HIGH":     return "#ff4400";
-      case "MEDIUM":   return "#ffb300";
-      case "LOW":      return "#ffe566";
-      default:         return "rgba(255,179,0,0.4)";
+      case "MEDIUM":   return "#00d4ff";
+      case "LOW":      return "#a0f4ff";
+      default:         return "rgba(0,212,255,0.4)";
     }
   };
 
   return (
     <div>
       <SectionHeader title="CVE SEARCH" icon="⚠" />
-      <div style={{ fontSize: 9, color: "rgba(255,179,0,0.35)", marginBottom: 12 }}>
+      <div style={{ fontSize: 9, color: "rgba(0,212,255,0.35)", marginBottom: 12 }}>
         Search NIST National Vulnerability Database. Enter service name, software, or CVE ID.
       </div>
       <Field label="SEARCH QUERY" value={query} onChange={setQuery} placeholder="apache 2.4 / openssl / CVE-2024-..." />
@@ -784,13 +784,13 @@ function CveTab() {
       {error && <div style={{ fontSize: 9, color: "#ff4400", marginTop: 10 }}>{error}</div>}
       {results.length > 0 && (
         <div style={{ marginTop: 14 }}>
-          <div style={{ fontSize: 7, letterSpacing: 4, color: "rgba(255,179,0,0.35)", marginBottom: 10 }}>
+          <div style={{ fontSize: 7, letterSpacing: 4, color: "rgba(0,212,255,0.35)", marginBottom: 10 }}>
             {results.length} RESULTS
           </div>
           {results.map((cve) => (
-            <div key={cve.id} style={{ marginBottom: 10, padding: "10px 14px", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,179,0,0.08)", borderLeft: `3px solid ${severityColor(cve.severity)}`, borderRadius: "0 3px 3px 0" }}>
+            <div key={cve.id} style={{ marginBottom: 10, padding: "10px 14px", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(0,212,255,0.08)", borderLeft: `3px solid ${severityColor(cve.severity)}`, borderRadius: "0 3px 3px 0" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
-                <span style={{ fontSize: 11, fontWeight: "bold", color: "#ffe566", letterSpacing: 1 }}>{cve.id}</span>
+                <span style={{ fontSize: 11, fontWeight: "bold", color: "#a0f4ff", letterSpacing: 1 }}>{cve.id}</span>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <span style={{ fontSize: 10, color: severityColor(cve.severity), fontWeight: "bold", textShadow: `0 0 8px ${severityColor(cve.severity)}` }}>
                     {cve.cvss_score.toFixed(1)}
@@ -800,15 +800,15 @@ function CveTab() {
                   </span>
                 </div>
               </div>
-              <div style={{ fontSize: 9, color: "rgba(255,179,0,0.65)", lineHeight: 1.6, marginBottom: 6 }}>
+              <div style={{ fontSize: 9, color: "rgba(0,212,255,0.65)", lineHeight: 1.6, marginBottom: 6 }}>
                 {cve.description.slice(0, 300)}{cve.description.length > 300 ? "..." : ""}
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: 7, color: "rgba(255,179,0,0.3)", letterSpacing: 2 }}>
+                <span style={{ fontSize: 7, color: "rgba(0,212,255,0.3)", letterSpacing: 2 }}>
                   {cve.published.slice(0, 10)}
                 </span>
                 {cve.references[0] && (
-                  <a href={cve.references[0]} target="_blank" rel="noreferrer" style={{ fontSize: 7, color: "rgba(255,179,0,0.4)", letterSpacing: 2 }}>
+                  <a href={cve.references[0]} target="_blank" rel="noreferrer" style={{ fontSize: 7, color: "rgba(0,212,255,0.4)", letterSpacing: 2 }}>
                     REF ↗
                   </a>
                 )}
@@ -857,7 +857,7 @@ function FullPortScanTab() {
   return (
     <div>
       <SectionHeader title="FULL PORT SCANNER" icon="⬡" />
-      <div style={{ fontSize: 9, color: "rgba(255,179,0,0.35)", marginBottom: 12 }}>
+      <div style={{ fontSize: 9, color: "rgba(0,212,255,0.35)", marginBottom: 12 }}>
         Parallel TCP connect scan · Max 10 000 ports · Only scan systems you own or have permission to test
       </div>
 
@@ -865,18 +865,18 @@ function FullPortScanTab() {
 
       <div style={{ display: "flex", gap: 10, marginBottom: 12, alignItems: "flex-end" }}>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.4)", marginBottom: 4 }}>START PORT</div>
+          <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(0,212,255,0.4)", marginBottom: 4 }}>START PORT</div>
           <input
             value={startPort} onChange={(e) => setStartPort(e.target.value)}
-            style={{ width: "100%", background: "rgba(255,179,0,0.04)", border: "1px solid rgba(255,179,0,0.15)", borderRadius: 3, padding: "6px 10px", color: "rgba(255,230,102,0.9)", fontSize: 11, fontFamily: "inherit", outline: "none" }}
+            style={{ width: "100%", background: "rgba(0,212,255,0.04)", border: "1px solid rgba(0,212,255,0.15)", borderRadius: 3, padding: "6px 10px", color: "rgba(160,244,255,0.9)", fontSize: 11, fontFamily: "inherit", outline: "none" }}
           />
         </div>
-        <div style={{ fontSize: 10, color: "rgba(255,179,0,0.3)", paddingBottom: 8 }}>–</div>
+        <div style={{ fontSize: 10, color: "rgba(0,212,255,0.3)", paddingBottom: 8 }}>–</div>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.4)", marginBottom: 4 }}>END PORT</div>
+          <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(0,212,255,0.4)", marginBottom: 4 }}>END PORT</div>
           <input
             value={endPort} onChange={(e) => setEndPort(e.target.value)}
-            style={{ width: "100%", background: "rgba(255,179,0,0.04)", border: "1px solid rgba(255,179,0,0.15)", borderRadius: 3, padding: "6px 10px", color: "rgba(255,230,102,0.9)", fontSize: 11, fontFamily: "inherit", outline: "none" }}
+            style={{ width: "100%", background: "rgba(0,212,255,0.04)", border: "1px solid rgba(0,212,255,0.15)", borderRadius: 3, padding: "6px 10px", color: "rgba(160,244,255,0.9)", fontSize: 11, fontFamily: "inherit", outline: "none" }}
           />
         </div>
       </div>
@@ -885,7 +885,7 @@ function FullPortScanTab() {
       <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
         {presets.map((p) => (
           <button key={p.label} onClick={() => { setStartPort(p.s); setEndPort(p.e); }}
-            style={{ fontSize: 7, letterSpacing: 2, padding: "3px 10px", background: "transparent", border: "1px solid rgba(255,179,0,0.2)", color: "rgba(255,179,0,0.5)", borderRadius: 2, cursor: "pointer", fontFamily: "inherit" }}>
+            style={{ fontSize: 7, letterSpacing: 2, padding: "3px 10px", background: "transparent", border: "1px solid rgba(0,212,255,0.2)", color: "rgba(0,212,255,0.5)", borderRadius: 2, cursor: "pointer", fontFamily: "inherit" }}>
             {p.label}
           </button>
         ))}
@@ -899,22 +899,22 @@ function FullPortScanTab() {
           {/* Summary row */}
           <div style={{ display: "flex", gap: 24, marginBottom: 14, flexWrap: "wrap" }}>
             <div>
-              <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.35)", marginBottom: 3 }}>HOST</div>
-              <div style={{ fontSize: 10, color: "rgba(255,230,102,0.85)" }}>{result.host}</div>
+              <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(0,212,255,0.35)", marginBottom: 3 }}>HOST</div>
+              <div style={{ fontSize: 10, color: "rgba(160,244,255,0.85)" }}>{result.host}</div>
             </div>
             <div>
-              <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.35)", marginBottom: 3 }}>SCANNED</div>
-              <div style={{ fontSize: 10, color: "rgba(255,230,102,0.85)" }}>{result.scanned.toLocaleString()} ports</div>
+              <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(0,212,255,0.35)", marginBottom: 3 }}>SCANNED</div>
+              <div style={{ fontSize: 10, color: "rgba(160,244,255,0.85)" }}>{result.scanned.toLocaleString()} ports</div>
             </div>
             <div>
-              <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.35)", marginBottom: 3 }}>OPEN</div>
-              <div style={{ fontSize: 18, fontWeight: "bold", color: result.open.length > 0 ? "#ff6e00" : "#00ff88", textShadow: result.open.length > 0 ? "0 0 10px #ff6e00" : "0 0 8px #00ff88" }}>
+              <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(0,212,255,0.35)", marginBottom: 3 }}>OPEN</div>
+              <div style={{ fontSize: 18, fontWeight: "bold", color: result.open.length > 0 ? "#0088cc" : "#00ff88", textShadow: result.open.length > 0 ? "0 0 10px #0088cc" : "0 0 8px #00ff88" }}>
                 {result.open.length}
               </div>
             </div>
             <div>
-              <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.35)", marginBottom: 3 }}>DURATION</div>
-              <div style={{ fontSize: 10, color: "rgba(255,230,102,0.85)" }}>{(result.duration_ms / 1000).toFixed(1)}s</div>
+              <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(0,212,255,0.35)", marginBottom: 3 }}>DURATION</div>
+              <div style={{ fontSize: 10, color: "rgba(160,244,255,0.85)" }}>{(result.duration_ms / 1000).toFixed(1)}s</div>
             </div>
           </div>
 
@@ -922,12 +922,12 @@ function FullPortScanTab() {
             ? <div style={{ fontSize: 9, color: "#00ff88" }}>No open ports found in range</div>
             : (
               <div>
-                <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(255,179,0,0.35)", marginBottom: 8 }}>OPEN PORTS</div>
+                <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(0,212,255,0.35)", marginBottom: 8 }}>OPEN PORTS</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 6 }}>
                   {result.open.map((p) => (
-                    <div key={p.port} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 10px", background: "rgba(255,110,0,0.05)", border: "1px solid rgba(255,110,0,0.2)", borderRadius: 3 }}>
-                      <span style={{ fontSize: 11, fontWeight: "bold", color: "#ff6e00", minWidth: 36 }}>{p.port}</span>
-                      <span style={{ fontSize: 8, color: "rgba(255,179,0,0.55)", letterSpacing: 1 }}>{p.service || "UNKNOWN"}</span>
+                    <div key={p.port} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 10px", background: "rgba(0,136,204,0.05)", border: "1px solid rgba(0,136,204,0.2)", borderRadius: 3 }}>
+                      <span style={{ fontSize: 11, fontWeight: "bold", color: "#0088cc", minWidth: 36 }}>{p.port}</span>
+                      <span style={{ fontSize: 8, color: "rgba(0,212,255,0.55)", letterSpacing: 1 }}>{p.service || "UNKNOWN"}</span>
                     </div>
                   ))}
                 </div>
@@ -954,15 +954,15 @@ function LocalAccessTab() {
 
   const isIdle    = state === "idle"    || state === "done" || state === "error";
   const statusColors: Record<string, string> = {
-    idle:             "rgba(255,179,0,0.4)",
-    checking:         "#ffb300",
-    awaiting_confirm: "#ffb300",
+    idle:             "rgba(0,212,255,0.4)",
+    checking:         "#00d4ff",
+    awaiting_confirm: "#00d4ff",
     elevating:        "#ff9900",
     running:          "#00ff88",
     done:             "#00ff88",
     error:            "#ff4400",
   };
-  const statusColor = statusColors[state] ?? "rgba(255,179,0,0.4)";
+  const statusColor = statusColors[state] ?? "rgba(0,212,255,0.4)";
 
   return (
     <div>
@@ -990,7 +990,7 @@ function LocalAccessTab() {
       {state === "idle" && (
         <div style={{ marginBottom: 16 }}>
           <Btn label="EXTRACT ALL CREDENTIALS" onClick={startSession} />
-          <div style={{ marginTop: 8, fontSize: 9, color: "rgba(255,179,0,0.35)", lineHeight: 1.6 }}>
+          <div style={{ marginTop: 8, fontSize: 9, color: "rgba(0,212,255,0.35)", lineHeight: 1.6 }}>
             Extracts from: LSASS · SAM · Credential Manager · Browsers · WiFi · Env Vars · Scheduled Tasks · Registry
           </div>
         </div>
@@ -998,9 +998,9 @@ function LocalAccessTab() {
 
       {/* Confirmation prompt */}
       {state === "awaiting_confirm" && readyPayload && (
-        <div style={{ background: "rgba(255,179,0,0.04)", border: "1px solid rgba(255,179,0,0.2)", borderRadius: 4, padding: "14px 16px", marginBottom: 16 }}>
-          <div style={{ fontSize: 9, letterSpacing: 2, color: "#ffb300", marginBottom: 10 }}>CONFIRMATION REQUIRED</div>
-          <pre style={{ fontSize: 9, color: "rgba(255,230,102,0.7)", lineHeight: 1.7, whiteSpace: "pre-wrap", margin: "0 0 14px" }}>
+        <div style={{ background: "rgba(0,212,255,0.04)", border: "1px solid rgba(0,212,255,0.2)", borderRadius: 4, padding: "14px 16px", marginBottom: 16 }}>
+          <div style={{ fontSize: 9, letterSpacing: 2, color: "#00d4ff", marginBottom: 10 }}>CONFIRMATION REQUIRED</div>
+          <pre style={{ fontSize: 9, color: "rgba(160,244,255,0.7)", lineHeight: 1.7, whiteSpace: "pre-wrap", margin: "0 0 14px" }}>
             {(readyPayload as any).risk_summary}
           </pre>
           <div style={{ display: "flex", gap: 10 }}>
@@ -1013,18 +1013,18 @@ function LocalAccessTab() {
       {/* Progress */}
       {progress.length > 0 && (
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 8, letterSpacing: 3, color: "rgba(255,179,0,0.4)", marginBottom: 8 }}>PROGRESS</div>
+          <div style={{ fontSize: 8, letterSpacing: 3, color: "rgba(0,212,255,0.4)", marginBottom: 8 }}>PROGRESS</div>
           {progress.map((p: LocalAccessProgress) => (
             <div key={p.source} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
               <span style={{
                 fontSize: 8, letterSpacing: 2, padding: "1px 6px",
-                border: `1px solid ${p.status === "done" ? "#00ff88" : p.status === "failed" ? "#ff4400" : "#ffb300"}`,
-                color:         p.status === "done" ? "#00ff88" : p.status === "failed" ? "#ff4400" : "#ffb300",
+                border: `1px solid ${p.status === "done" ? "#00ff88" : p.status === "failed" ? "#ff4400" : "#00d4ff"}`,
+                color:         p.status === "done" ? "#00ff88" : p.status === "failed" ? "#ff4400" : "#00d4ff",
                 borderRadius: 2, minWidth: 50, textAlign: "center",
               }}>
                 {p.status.toUpperCase()}
               </span>
-              <span style={{ fontSize: 10, color: "rgba(255,230,102,0.7)" }}>{p.source}</span>
+              <span style={{ fontSize: 10, color: "rgba(160,244,255,0.7)" }}>{p.source}</span>
               {p.error && <span style={{ fontSize: 9, color: "#ff6644" }}>{p.error}</span>}
             </div>
           ))}
@@ -1041,10 +1041,10 @@ function LocalAccessTab() {
       {/* NTLM Hashes */}
       {hashes.length > 0 && (
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 8, letterSpacing: 3, color: "rgba(255,179,0,0.4)", marginBottom: 6 }}>NTLM HASHES ({hashes.length})</div>
-          <div style={{ background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,179,0,0.08)", borderRadius: 3, padding: "10px 14px", fontFamily: "monospace", fontSize: 10 }}>
+          <div style={{ fontSize: 8, letterSpacing: 3, color: "rgba(0,212,255,0.4)", marginBottom: 6 }}>NTLM HASHES ({hashes.length})</div>
+          <div style={{ background: "rgba(0,0,0,0.4)", border: "1px solid rgba(0,212,255,0.08)", borderRadius: 3, padding: "10px 14px", fontFamily: "monospace", fontSize: 10 }}>
             {hashes.map((h: string, i: number) => (
-              <div key={i} style={{ color: "rgba(255,230,102,0.8)", marginBottom: 2 }}>{h}</div>
+              <div key={i} style={{ color: "rgba(160,244,255,0.8)", marginBottom: 2 }}>{h}</div>
             ))}
           </div>
         </div>
@@ -1053,11 +1053,11 @@ function LocalAccessTab() {
       {/* Full output */}
       {fullOutput && (
         <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 8, letterSpacing: 3, color: "rgba(255,179,0,0.4)", marginBottom: 6 }}>FULL OUTPUT</div>
+          <div style={{ fontSize: 8, letterSpacing: 3, color: "rgba(0,212,255,0.4)", marginBottom: 6 }}>FULL OUTPUT</div>
           <pre style={{
-            background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,179,0,0.08)",
+            background: "rgba(0,0,0,0.4)", border: "1px solid rgba(0,212,255,0.08)",
             borderRadius: 3, padding: "12px 14px", fontSize: 9, lineHeight: 1.7,
-            color: "rgba(255,230,102,0.75)", overflowX: "auto", whiteSpace: "pre-wrap",
+            color: "rgba(160,244,255,0.75)", overflowX: "auto", whiteSpace: "pre-wrap",
             maxHeight: 400, overflowY: "auto",
           }}>
             {fullOutput}
@@ -1067,7 +1067,7 @@ function LocalAccessTab() {
 
       {/* Memory inspector */}
       {(state === "running" || state === "done") && (
-        <div style={{ borderTop: "1px solid rgba(255,179,0,0.08)", paddingTop: 16 }}>
+        <div style={{ borderTop: "1px solid rgba(0,212,255,0.08)", paddingTop: 16 }}>
           <SectionHeader title="MEMORY INSPECTOR" icon="🔍" />
           <div style={{ display: "flex", gap: 10, marginBottom: 10, alignItems: "flex-end" }}>
             <div style={{ flex: 1 }}>
@@ -1084,9 +1084,9 @@ function LocalAccessTab() {
           </div>
           {memoryResult && (
             <pre style={{
-              background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,179,0,0.08)",
+              background: "rgba(0,0,0,0.4)", border: "1px solid rgba(0,212,255,0.08)",
               borderRadius: 3, padding: "10px 14px", fontSize: 9, lineHeight: 1.7,
-              color: "rgba(255,230,102,0.75)", whiteSpace: "pre-wrap",
+              color: "rgba(160,244,255,0.75)", whiteSpace: "pre-wrap",
               maxHeight: 300, overflowY: "auto",
             }}>
               {JSON.stringify(memoryResult, null, 2)}
@@ -1135,13 +1135,13 @@ export function SecurityPanel() {
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
       {/* Tab bar */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 2, padding: "12px 16px 0", borderBottom: "1px solid rgba(255,179,0,0.08)", flexShrink: 0 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 2, padding: "12px 16px 0", borderBottom: "1px solid rgba(0,212,255,0.08)", flexShrink: 0 }}>
         {TABS.map(({ id, label }) => (
           <button key={id} onClick={() => setTab(id)} style={{
             padding: "6px 10px", fontSize: 7, letterSpacing: 3,
-            background: tab === id ? "rgba(255,179,0,0.08)" : "transparent",
-            border: "none", borderBottom: `2px solid ${tab === id ? "#ffb300" : "transparent"}`,
-            color: tab === id ? "#ffb300" : "rgba(255,179,0,0.35)",
+            background: tab === id ? "rgba(0,212,255,0.08)" : "transparent",
+            border: "none", borderBottom: `2px solid ${tab === id ? "#00d4ff" : "transparent"}`,
+            color: tab === id ? "#00d4ff" : "rgba(0,212,255,0.35)",
             cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s",
           }}>
             {label}
