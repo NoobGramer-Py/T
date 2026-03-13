@@ -7,53 +7,50 @@ No auto-expiry — session lasts until Abdul ends it manually.
 
 import asyncio
 import secrets
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from dataclasses import dataclass
 from core.logger import get_logger
 from .safety import cleanup_temp, make_session_key
-
-if TYPE_CHECKING:
-    from asyncio import subprocess as asyncio_subprocess
 
 log = get_logger("local_access.session")
 
 
 @dataclass
 class LocalSession:
-    id:          str
-    key:         bytes
-    helper_proc: "asyncio.subprocess.Process | None" = field(default=None, repr=False)
-    active:      bool = False
-    port:        int  = 0
+    id:     str
+    key:    bytes
+    active: bool = False
+    port:   int  = 0
 
     @classmethod
     def create(cls) -> "LocalSession":
         return cls(id=secrets.token_hex(8), key=make_session_key())
 
-    def attach_helper(self, proc: "asyncio.subprocess.Process", port: int) -> None:
-        self.helper_proc = proc
-        self.port        = port
-        self.active      = True
-        log.info(f"session {self.id} — helper attached on port {port}")
-
     async def kill(self) -> None:
         """
-        Kill switch: terminate helper process, clean all temp files, reset state.
+        Kill switch: close helper connection, cancel extraction task,
+        clean all temp files, reset state.
         Safe to call multiple times.
         """
         self.active = False
 
-        if self.helper_proc is not None:
+        # Close the writer — sends EOF to helper which causes it to exit cleanly
+        writer = getattr(self, "_writer", None)
+        if writer is not None:
             try:
-                self.helper_proc.kill()
-                await asyncio.wait_for(self.helper_proc.wait(), timeout=5.0)
-                log.info(f"session {self.id} — helper process terminated")
-            except ProcessLookupError:
-                pass   # already gone
-            except Exception as e:
-                log.warning(f"session {self.id} — helper kill error: {e}")
-            finally:
-                self.helper_proc = None
+                writer.close()
+            except Exception:
+                pass
+            self._writer = None  # type: ignore
+
+        # Cancel the extraction/wait task if still running
+        task = getattr(self, "_task", None)
+        if task is not None and not task.done():
+            task.cancel()
+            try:
+                await asyncio.wait_for(task, timeout=3.0)
+            except (asyncio.CancelledError, asyncio.TimeoutError, Exception):
+                pass
+            self._task = None  # type: ignore
 
         deleted = cleanup_temp()
         log.info(f"session {self.id} ended — {deleted} temp file(s) deleted")

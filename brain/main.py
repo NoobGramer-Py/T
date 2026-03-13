@@ -1,5 +1,3 @@
-import os
-import asyncio
 import uvicorn
 from dotenv import load_dotenv
 from core.ws_server import app
@@ -12,15 +10,11 @@ HOST = "127.0.0.1"
 PORT = 7891
 
 
+@app.on_event("startup")
 async def _startup() -> None:
     from proactive.engine import start as start_proactive
     await start_proactive()
     log.info("proactive engine running")
-
-
-@app.on_event("startup")
-async def on_startup() -> None:
-    asyncio.create_task(_startup())
 
 
 def main() -> None:

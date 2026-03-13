@@ -59,7 +59,7 @@ class SystemMonitor:
 
     def _check_cpu(self, out: list[Anomaly]) -> None:
         try:
-            pct = psutil.cpu_percent(interval=1)
+            pct = psutil.cpu_percent(interval=None)
             if pct >= _CPU_WARN_PCT:
                 self._cpu_hits += 1
                 if self._cpu_hits >= _CONSEC_CPU_HITS:
@@ -111,9 +111,16 @@ class SystemMonitor:
     def _check_ports(self, out: list[Anomaly]) -> None:
         try:
             current: set[int] = set()
-            for conn in psutil.net_connections(kind="inet"):
-                if conn.status == "LISTEN":
-                    current.add(conn.laddr.port)
+            try:
+                for conn in psutil.net_connections(kind="inet"):
+                    if conn.status == "LISTEN":
+                        current.add(conn.laddr.port)
+            except psutil.AccessDenied:
+                # Requires admin on some Windows versions — skip silently after first warn
+                if not self._initialized:
+                    log.warning("net_connections requires admin on this system — port monitoring disabled")
+                self._known_ports = current
+                return
 
             if self._initialized:
                 for port in current - self._known_ports:
@@ -148,18 +155,25 @@ class SystemMonitor:
     # ── Helpers ──────────────────────────────────────────────────────────────
 
     def _top_cpu_proc(self) -> str:
+        """
+        Return the name of the process using the most CPU.
+        Uses cached cpu_percent values (interval=None) — no blocking sleep.
+        Values are accurate after the first poll cycle (30s into brain life).
+        """
         try:
-            procs = sorted(
-                psutil.process_iter(["name", "cpu_percent"]),
-                key=lambda p: p.info["cpu_percent"] or 0,
-                reverse=True,
-            )
-            if procs:
-                p = procs[0]
-                return f"{p.info['name']} at {p.info['cpu_percent']:.0f}% CPU"
+            best_name = "unknown process"
+            best_pct  = 0.0
+            for p in psutil.process_iter(["name", "cpu_percent"]):
+                try:
+                    pct = p.info["cpu_percent"] or 0.0
+                    if pct > best_pct:
+                        best_pct  = pct
+                        best_name = p.info["name"]
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
+            return f"{best_name} at {best_pct:.0f}% CPU" if best_pct > 0 else "unknown process"
         except Exception:
-            pass
-        return "unknown process"
+            return "unknown process"
 
     def _top_ram_proc(self) -> str:
         try:

@@ -28,16 +28,18 @@ def is_admin() -> bool:
         return False
 
 
-async def create_callback_server() -> tuple[int, asyncio.Server]:
+async def create_callback_server(
+    handler,
+) -> tuple[int, asyncio.Server]:
     """
-    Create a local TCP server on a random port.
+    Create a local TCP server on a random port with the given connection handler.
     Helper.py will connect back to this port after elevation.
     Returns (port, server).
     """
     server = await asyncio.start_server(
-        lambda r, w: None,   # placeholder — replaced by orchestrator before accepting
+        handler,
         host="127.0.0.1",
-        port=0,              # OS assigns a random available port
+        port=0,   # OS assigns a random available port
     )
     port = server.sockets[0].getsockname()[1]
     log.info(f"callback server listening on 127.0.0.1:{port}")

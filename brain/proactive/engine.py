@@ -46,8 +46,11 @@ async def _loop() -> None:
 
 
 async def _tick(broadcast_fn) -> None:
+    # Run monitor.check() in a thread — psutil calls are blocking I/O
+    loop      = asyncio.get_event_loop()
+    anomalies = await loop.run_in_executor(None, _monitor.check)
+
     # ── System monitor anomalies ──────────────────────────────────────────────
-    anomalies = _monitor.check()
     for a in anomalies:
         # Use a stable cooldown key so same anomaly doesn't spam
         key = f"monitor:{a.kind}:{a.message[:40]}"

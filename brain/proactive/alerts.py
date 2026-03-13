@@ -5,7 +5,6 @@ Alert management for T's proactive engine.
 """
 
 import time
-import uuid
 from dataclasses import dataclass, field
 from core.logger import get_logger
 

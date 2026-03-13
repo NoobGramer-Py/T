@@ -39,6 +39,10 @@ class SuggestionEngine:
         # Trim hits outside window
         self._hits[topic] = [t for t in hits if now - t < _WINDOW_S]
 
+        # If hits expired below threshold, allow the suggestion to fire again
+        if len(self._hits[topic]) < _THRESHOLD:
+            self._fired.discard(topic)
+
         if len(self._hits[topic]) >= _THRESHOLD and topic not in self._fired:
             self._fired.add(topic)
             log.info(f"suggestion fired  topic={topic!r}")

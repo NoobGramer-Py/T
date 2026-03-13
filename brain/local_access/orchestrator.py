@@ -1,14 +1,16 @@
 """
 Orchestrator for T's local access module.
 Handles: local_access_start, local_access_confirm, local_access_end, memory_inspect.
+
 Flow:
   1. Safety checks (firewall, AV, connections) — warnings only
-  2. Show confirmation prompt to Abdul
+  2. Send confirmation prompt to Tauri
   3. Wait for local_access_confirm with confirmed=true
   4. Spawn elevated helper via UAC prompt
-  5. Connect to helper via TCP callback server
-  6. Stream results to Tauri as they arrive
-  7. Kill switch: local_access_end → end session immediately
+  5. Authenticate helper over TCP callback
+  6. Stream extraction results as they arrive
+  7. After extraction: stay alive so memory inspector keeps working
+  8. Kill switch (local_access_end) cancels the task → cleanup runs in finally
 """
 
 import asyncio
@@ -27,51 +29,44 @@ if TYPE_CHECKING:
 
 log = get_logger("local_access.orchestrator")
 
-# Per-client confirmation futures — keyed by client.id
-_pending_confirms: dict[str, asyncio.Future] = {}
-
 
 async def handle_start(client: "Client", msg: dict) -> None:
     """
-    Handle local_access_start message.
-    Runs safety checks, sends confirmation prompt to Tauri.
+    Handle local_access_start.
+    Runs safety checks, sends confirmation prompt.
     """
     if is_active():
         await client.send({
-            "type":    "local_access_error",
-            "error":   "A session is already active. Send local_access_end first.",
+            "type":  "local_access_error",
+            "error": "A session is already active. Send local_access_end first.",
         })
         return
 
-    # Safety checks
-    checks    = await run_checks()
-    warnings  = [c for c in checks if c["status"] == "warn"]
-    check_txt = "\n".join(f"  [{c['check']}] {c['message']}" for c in checks)
-
-    sources = [
-        "LSASS (cached Windows credentials)",
-        "SAM database (local account NTLM hashes)",
-        "Windows Credential Manager",
-        "Browser saved passwords (Chrome, Edge, Firefox)",
-        "WiFi passwords (all saved networks)",
-        "Environment variables (API keys, tokens)",
-        "Scheduled tasks with embedded credentials",
-        "Registry credential paths",
-    ]
+    checks   = await run_checks()
+    warnings = [c for c in checks if c["status"] == "warn"]
 
     warn_note = ""
     if warnings:
         warn_note = "\n⚠ Warnings:\n" + "\n".join(f"  • {w['message']}" for w in warnings) + "\n"
 
     await client.send({
-        "type":         "local_access_ready",
-        "id":           msg.get("id", ""),
-        "sources":      sources,
+        "type":    "local_access_ready",
+        "id":      msg.get("id", ""),
+        "sources": [
+            "LSASS (cached Windows credentials)",
+            "SAM database (local account NTLM hashes)",
+            "Windows Credential Manager",
+            "Browser saved passwords (Chrome, Edge, Firefox)",
+            "WiFi passwords (all saved networks)",
+            "Environment variables (API keys, tokens)",
+            "Scheduled tasks with embedded credentials",
+            "Registry credential paths",
+        ],
         "checks":       checks,
         "risk_summary": (
             "Requires admin (Windows UAC prompt will appear).\n"
             "LSASS dump may trigger Windows Defender — fallback method ready.\n"
-            "All temp files are encrypted and deleted within 60s.\n"
+            "All temp files are encrypted and deleted on session end.\n"
             "No data leaves this machine.\n"
             f"{warn_note}"
             "Type YES to proceed."
@@ -80,21 +75,12 @@ async def handle_start(client: "Client", msg: dict) -> None:
 
 
 async def handle_confirm(client: "Client", msg: dict) -> None:
-    """
-    Handle local_access_confirm.
-    If confirmed=true: spawn helper, connect, stream results.
-    """
-    fut = _pending_confirms.pop(client.id, None)
-    if fut and not fut.done():
-        fut.set_result(bool(msg.get("confirmed", False)))
-        return
-
-    # Not waiting on a future — this is the primary confirm after handle_start
+    """Handle local_access_confirm from Tauri."""
     if not msg.get("confirmed", False):
         await client.send({"type": "local_access_cancelled"})
         return
-
-    await _run_session(client, msg)
+    # Run session as a separate task so handle() returns immediately
+    asyncio.create_task(_run_session(client), name="la_session")
 
 
 async def handle_end(client: "Client", msg: dict) -> None:
@@ -113,50 +99,48 @@ async def handle_memory_inspect(client: "Client", msg: dict) -> None:
     if not session or not session.active:
         await client.send({
             "type":  "local_access_error",
-            "error": "No active elevated session. Start a session first.",
+            "error": "No active session. Start a session first.",
         })
         return
-    # The helper connection is managed by _run_session.
-    # We publish the request via a shared asyncio queue on the session object.
-    if hasattr(session, "_cmd_queue"):
-        await session._cmd_queue.put(msg)   # type: ignore
-    else:
+    q = getattr(session, "_cmd_queue", None)
+    if q is None:
         await client.send({"type": "local_access_error", "error": "Helper not ready yet."})
+        return
+    await q.put(msg)
 
 
 # ─── Internal ─────────────────────────────────────────────────────────────────
 
-async def _run_session(client: "Client", msg: dict) -> None:
-    """Spawn helper, connect, stream all results, clean up."""
+async def _run_session(client: "Client") -> None:
+    """
+    Full session lifecycle:
+    spawn → authenticate → extract → stay alive for memory inspect → cleanup.
+
+    Cancellation-safe: kill switch sets session.active=False and closes writer,
+    then cancels this task. CancelledError propagates to the finally block.
+    """
     session = new_session()
     session._cmd_queue = asyncio.Queue()   # type: ignore
+    session._task      = asyncio.current_task()  # type: ignore
 
-    # Create callback TCP server
-    port, server = await create_callback_server()
+    # ── Setup TCP callback server ────────────────────────────────────────────
+    helper_ready: "asyncio.Future[tuple]" = asyncio.get_event_loop().create_future()
 
-    # Override connection handler now that we have session context
-    helper_conn_future: asyncio.Future = asyncio.get_event_loop().create_future()
+    async def _on_connect(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        if not helper_ready.done():
+            helper_ready.set_result((reader, writer))
 
-    async def _on_connection(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
-        if not helper_conn_future.done():
-            helper_conn_future.set_result((reader, writer))
+    port, server = await create_callback_server(_on_connect)
+    token        = secrets.token_hex(16)
 
-    # Restart server with real handler
-    server.close()
-    await server.wait_closed()
-    real_server = await asyncio.start_server(_on_connection, host="127.0.0.1", port=port)
-    port = real_server.sockets[0].getsockname()[1]
-
-    # Spawn elevated helper
-    token   = secrets.token_hex(16)
+    # ── Spawn elevated helper via UAC ────────────────────────────────────────
     success = spawn_elevated(port, token)
-
     if not success:
-        real_server.close()
-        await real_server.wait_closed()
+        server.close()
+        await server.wait_closed()
         await client.send({
             "type":  "local_access_error",
-            "error": "UAC elevation cancelled or failed. Session not started.",
+            "error": "UAC elevation cancelled or failed.",
         })
         return
 
@@ -164,81 +148,74 @@ async def _run_session(client: "Client", msg: dict) -> None:
         "type":    "local_access_progress",
         "source":  "Session",
         "status":  "waiting_for_helper",
-        "message": "UAC accepted — waiting for helper to connect...",
+        "message": "UAC accepted — waiting for helper...",
     })
 
-    # Wait for helper connection (up to 30s — UAC + process start time)
+    # ── Wait for helper connection (30s) ──────────────────────────────────────
     try:
-        reader, writer = await asyncio.wait_for(helper_conn_future, timeout=30.0)
+        reader, writer = await asyncio.wait_for(helper_ready, timeout=30.0)
     except asyncio.TimeoutError:
-        real_server.close()
-        await real_server.wait_closed()
+        server.close()
+        await server.wait_closed()
         await client.send({
             "type":  "local_access_error",
-            "error": "Helper did not connect within 30s. UAC may have been cancelled.",
+            "error": "Helper did not connect within 30s.",
         })
         return
 
-    real_server.close()   # no more connections needed
+    server.close()   # only one connection needed
 
-    # Authenticate helper
+    # ── Authenticate helper ───────────────────────────────────────────────────
     hello = await _read_line(reader)
     if not hello or hello.get("token") != token:
         writer.close()
         await client.send({"type": "local_access_error", "error": "Helper auth failed."})
         return
 
-    session.active = True
+    # ── Session is live ───────────────────────────────────────────────────────
+    session.active  = True
+    session._writer = writer   # type: ignore
+    asyncio.create_task(_cmd_loop(session, writer), name="la_cmd_loop")
 
-    # Start command forwarding loop (memory inspect requests)
-    asyncio.create_task(_cmd_loop(session, writer))
+    _write(writer, {"type": "extract_all", "session_key": session.key.hex()})
 
-    # Send extraction command
-    cmd = json.dumps({
-        "type":        "extract_all",
-        "session_key": session.key.hex(),
-    }) + "\n"
-    writer.write(cmd.encode())
-    await writer.drain()
-
-    # Stream results to client
-    all_hashes: list[str] = []
+    all_hashes:        list[str] = []
     full_output_parts: list[str] = []
 
     try:
+        # ── Stream extraction results ─────────────────────────────────────────
         while True:
-            msg_from_helper = await asyncio.wait_for(_read_line(reader), timeout=120.0)
-            if msg_from_helper is None:
+            msg_h = await asyncio.wait_for(_read_line(reader), timeout=120.0)
+            if msg_h is None:
                 break
 
-            t = msg_from_helper.get("type")
+            t = msg_h.get("type")
 
             if t == "progress":
                 await client.send({
                     "type":   "local_access_progress",
-                    "source": msg_from_helper.get("source"),
-                    "status": msg_from_helper.get("status"),
+                    "source": msg_h.get("source"),
+                    "status": msg_h.get("status"),
                 })
 
             elif t == "result":
                 full_output_parts.append(
-                    f"\n{'='*40}\n{msg_from_helper.get('source')}\n{'='*40}\n"
-                    f"{msg_from_helper.get('data', '')}"
+                    f"\n{'='*40}\n{msg_h.get('source','')}\n{'='*40}\n{msg_h.get('data','')}"
                 )
 
             elif t == "hashes":
-                all_hashes.extend(msg_from_helper.get("hashes", []))
+                all_hashes.extend(msg_h.get("hashes", []))
 
             elif t == "error":
                 await client.send({
                     "type":   "local_access_progress",
-                    "source": msg_from_helper.get("source"),
+                    "source": msg_h.get("source"),
                     "status": "failed",
-                    "error":  msg_from_helper.get("error"),
+                    "error":  msg_h.get("error"),
                 })
 
             elif t == "memory_inspect_result":
-                await client.send(msg_from_helper)
+                await client.send(msg_h)
 
             elif t == "done":
                 break
@@ -246,54 +223,63 @@ async def _run_session(client: "Client", msg: dict) -> None:
             elif t == "fatal_error":
                 await client.send({
                     "type":  "local_access_error",
-                    "error": msg_from_helper.get("error"),
+                    "error": msg_h.get("error"),
                 })
                 break
+
+        # ── Send results to client ────────────────────────────────────────────
+        n = len(full_output_parts)
+        await client.send({
+            "type":         "local_access_summary",
+            "chat_summary": _build_summary(n, all_hashes),
+        })
+        await client.send({
+            "type": "local_access_full",
+            "data": "\n".join(full_output_parts),
+        })
+        if all_hashes:
+            await client.send({
+                "type":   "local_access_hashes",
+                "hashes": list(set(all_hashes)),
+            })
+        log.info(f"extraction complete — {n} sources, {len(all_hashes)} hashes")
+
+        # ── Stay alive for memory inspection ──────────────────────────────────
+        # _cmd_loop forwards memory_inspect commands to the helper.
+        # We block here until session.kill() cancels this task.
+        while session.active:
+            await asyncio.sleep(0.5)
 
     except asyncio.TimeoutError:
         await client.send({
             "type":  "local_access_error",
             "error": "Helper timed out during extraction.",
         })
+
+    except asyncio.CancelledError:
+        pass   # kill switch fired — fall through to finally
+
     finally:
-        try:
-            writer.write((json.dumps({"type": "end"}) + "\n").encode())
-            await writer.drain()
-        except Exception:
-            pass
-        writer.close()
+        # session.kill() closes the writer before cancelling this task.
+        # If we arrive here without kill() (timeout / error path), close it ourselves.
+        if getattr(session, "_writer", None) is not None:
+            try:
+                writer.close()
+            except Exception:
+                pass
+            session._writer = None  # type: ignore
+        session.active = False
+        log.info("local_access session task exiting")
 
-    # Summarise and send to client
-    n_sources = full_output_parts.count("=" * 40) // 2
-    summary   = _build_summary(full_output_parts, all_hashes)
 
-    await client.send({
-        "type":         "local_access_summary",
-        "chat_summary": summary,
-    })
-    await client.send({
-        "type": "local_access_full",
-        "data": "\n".join(full_output_parts),
-    })
-
-    if all_hashes:
-        await client.send({
-            "type":   "local_access_hashes",
-            "hashes": list(set(all_hashes)),
-        })
-
-    session.active = False
-    log.info(f"extraction complete — {n_sources} sources, {len(all_hashes)} hashes")
-
+# ─── Helpers ──────────────────────────────────────────────────────────────────
 
 async def _cmd_loop(session, writer: asyncio.StreamWriter) -> None:
-    """Forward memory_inspect commands from the queue to the helper."""
+    """Forward commands from the queue to the helper (memory_inspect etc.)."""
     while session.active:
         try:
             cmd = await asyncio.wait_for(session._cmd_queue.get(), timeout=1.0)
-            data = (json.dumps(cmd) + "\n").encode()
-            writer.write(data)
-            await writer.drain()
+            _write(writer, cmd)
         except asyncio.TimeoutError:
             continue
         except Exception:
@@ -301,7 +287,7 @@ async def _cmd_loop(session, writer: asyncio.StreamWriter) -> None:
 
 
 async def _read_line(reader: asyncio.StreamReader) -> dict | None:
-    """Read one JSON line from the stream reader."""
+    """Read one newline-delimited JSON message from the reader."""
     try:
         line = await reader.readline()
         if not line:
@@ -311,10 +297,20 @@ async def _read_line(reader: asyncio.StreamReader) -> dict | None:
         return None
 
 
-def _build_summary(parts: list[str], hashes: list[str]) -> str:
-    filled = [p for p in parts if p.strip() and "No " not in p and "Error" not in p]
-    hash_note = f" {len(hashes)} NTLM hash(es) extracted — piping to hashcat." if hashes else ""
+def _write(writer: asyncio.StreamWriter, payload: dict) -> None:
+    """Write one JSON line. Fire-and-forget — safe for small messages."""
+    try:
+        writer.write((json.dumps(payload) + "\n").encode())
+    except Exception:
+        pass
+
+
+def _build_summary(n_sources: int, hashes: list[str]) -> str:
+    hash_note = (
+        f" {len(hashes)} NTLM hash(es) found — session open for hashcat." if hashes else ""
+    )
     return (
-        f"Extraction complete. {len(parts)} sources processed.{hash_note} "
-        "Full output in LOCAL ACCESS tab. Type 'end session' or click ■ to close the session."
+        f"Extraction complete. {n_sources} source(s) processed.{hash_note} "
+        "Full output in LOCAL ACCESS tab. Memory inspector is active. "
+        "Type 'end session' or click ■ when done."
     )
