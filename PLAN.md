@@ -629,6 +629,257 @@ All messages over WebSocket are JSON with this shape:
 
 ---
 
+## Phase 7 — Hardware Control
+
+**Goal**: T controls physical devices connected to Abdul's machine — Arduino, sensors, relays,
+anything that speaks serial/GPIO/MQTT. T understands the device, confirms before any state change,
+and logs every action. Nothing fires without Abdul's explicit command.
+
+---
+
+### What This Phase Covers
+
+Abdul says "turn on the relay on pin 4" or "read temperature from Arduino" or "send MQTT command
+to bedroom light" and T handles it — discovering the device, sending the command, reading back
+the response, and reporting the result. Every state-changing command requires a YES confirmation.
+Every result is logged.
+
+---
+
+### Architecture
+
+```
+brain/hardware/
+├── __init__.py
+├── registry.py          ← device registry — what's connected, what each device can do
+├── serial_handler.py    ← serial port discovery, connect, send, read, auto-detect baud
+├── gpio_handler.py      ← GPIO pin control via serial passthrough (Arduino) or direct RPi GPIO
+├── mqtt_handler.py      ← MQTT pub/sub client, connects to broker, sends/receives messages
+├── command_router.py    ← receives hardware commands from engine, routes to right handler
+└── safety.py            ← rate limiting, state validation, command blocklist
+```
+
+---
+
+### Device Registry — `registry.py`
+
+The registry is the single source of truth for what hardware T knows about.
+Loaded from `brain/config/hardware_devices.yaml` at startup.
+Abdul can add devices via chat ("register this device as relay_board on COM3").
+
+```yaml
+# brain/config/hardware_devices.yaml
+devices:
+  - id: arduino_uno
+    type: serial
+    port: COM3          # Windows COM port or /dev/ttyUSB0 on Linux
+    baud: 9600
+    description: Arduino Uno — relay board + DHT22 sensor
+    capabilities:
+      - digital_write   # turn pin on/off
+      - digital_read    # read pin state
+      - analog_read     # read analog pin
+      - dht_read        # read temperature/humidity from DHT sensor
+
+  - id: bedroom_light
+    type: mqtt
+    broker: 192.168.1.100
+    port: 1883
+    topic_pub: home/bedroom/light/set
+    topic_sub: home/bedroom/light/state
+    description: Smart bedroom light via MQTT
+    capabilities:
+      - publish         # send on/off/dim commands
+      - subscribe       # receive state updates
+```
+
+`registry.py` functions:
+- `load()` — read hardware_devices.yaml, build device objects
+- `get(device_id)` — return device config
+- `list_all()` — return all registered devices with status
+- `register(config_dict)` — add a new device at runtime, persist to YAML
+- `unregister(device_id)` — remove device from registry
+
+---
+
+### Serial Handler — `serial_handler.py`
+
+Controls all serial devices (Arduino, ESP32, any serial device).
+
+- `discover()` — scan all COM ports, return list of active ports with device description
+- `connect(port, baud)` — open serial connection, verify with ping
+- `send_command(device_id, command, value)` — send formatted command string, return response
+- `read_response(device_id, timeout)` — read until newline or timeout
+- `disconnect(device_id)` — close connection cleanly
+
+**Protocol**: T sends simple newline-terminated commands. Arduino sketch must follow this protocol:
+```
+T sends:  "DWRITE 13 HIGH\n"   → Arduino replies: "OK 13 HIGH\n"
+T sends:  "DREAD 7\n"          → Arduino replies:  "OK 7 LOW\n"
+T sends:  "AREAD A0\n"         → Arduino replies:  "OK A0 512\n"
+T sends:  "DHT 2\n"            → Arduino replies:  "OK 22.5 61.0\n"  (temp, humidity)
+T sends:  "PING\n"             → Arduino replies:  "PONG\n"
+```
+T provides a ready-to-flash Arduino sketch at `brain/hardware/arduino_sketch.ino`.
+
+Auto-baud detection: if baud is not specified, T tries 9600 → 115200 → 57600 until `PING/PONG` succeeds.
+
+---
+
+### GPIO Handler — `gpio_handler.py`
+
+For direct GPIO control (Raspberry Pi or similar Linux SBC).
+
+- Detects if running on RPi via `/proc/cpuinfo`
+- Uses `RPi.GPIO` if available, falls back to serial passthrough via Arduino
+- `set_pin(pin, state)` → HIGH / LOW
+- `read_pin(pin)` → HIGH / LOW
+- `pwm(pin, frequency, duty_cycle)` → PWM output
+
+If not on RPi, GPIO commands are forwarded to the registered serial device.
+
+---
+
+### MQTT Handler — `mqtt_handler.py`
+
+Connects to any MQTT broker (local Mosquitto, Home Assistant, etc.).
+
+- `connect(broker, port, user, password)` — establish MQTT connection
+- `publish(topic, payload, qos)` — send a message
+- `subscribe(topic, callback)` — listen for messages on a topic
+- `disconnect()` — clean disconnect
+
+Incoming MQTT messages matching a watched topic are forwarded to Tauri as:
+```json
+{"type": "hardware_event", "device_id": "bedroom_light", "topic": "...", "payload": "..."}
+```
+This allows T to report state changes proactively ("Bedroom light turned off").
+
+---
+
+### Command Router — `command_router.py`
+
+Single entry point from engine.py.
+Receives a hardware command, validates it against the device registry,
+runs the safety check, shows confirmation if destructive, then executes.
+
+```python
+route(device_id, action, params) -> str
+```
+
+**Routing logic:**
+- Lookup device in registry → get handler type (serial / gpio / mqtt)
+- Pass to correct handler
+- Receive response string
+- Return formatted result
+
+**Non-destructive** (no confirmation needed): read, status, ping, list
+**Destructive** (YES required): write, set, send, publish, reset, power
+
+---
+
+### Safety — `safety.py`
+
+Three hard rules enforced in code:
+
+**1. Rate limiting** — no device can receive more than 10 commands per 10 seconds.
+Any burst above this is rejected with an explanation. Prevents runaway loops.
+
+**2. Pin blocklist** — certain pins are blocked from write operations entirely.
+Default blocklist: pins 0, 1 (Arduino serial TX/RX — writing these breaks comms).
+Abdul can add to blocklist via config.
+
+**3. State validation** — before writing a value, T reads the current state.
+If the device returns an unexpected state after write (within 500ms), T reports it.
+Does not retry automatically — reports and lets Abdul decide.
+
+---
+
+### Natural Language Interface
+
+T understands hardware commands from plain chat:
+```
+"turn on pin 13"           → DWRITE 13 HIGH to arduino_uno
+"read temperature"         → DHT 2 to arduino_uno
+"turn off bedroom light"   → publish "OFF" to home/bedroom/light/set
+"what devices do I have"   → list_all() from registry
+"scan for serial devices"  → discover() from serial_handler
+"read pin A0"              → AREAD A0 to arduino_uno
+```
+
+Detection added to `engine.py` `_detect_integration()` — hardware commands route directly
+without going through the LLM, same pattern as weather/search integrations.
+
+---
+
+### WebSocket Protocol Additions
+
+```json
+// Brain → Tauri
+{"type": "hardware_result",  "device_id": "arduino_uno", "command": "DWRITE 13 HIGH", "response": "OK 13 HIGH"}
+{"type": "hardware_event",   "device_id": "bedroom_light", "payload": "OFF"}
+{"type": "hardware_error",   "device_id": "arduino_uno", "error": "Serial port not responding"}
+{"type": "hardware_devices", "devices": [...]}   // response to list request
+```
+
+---
+
+### New Settings Fields
+
+`brain/config/hardware_devices.yaml` — device registry (file-based, human-readable)
+
+New fields in SettingsPanel.tsx `Hardware` section:
+- Default serial port scan on startup: on/off
+- MQTT broker address + port + credentials (optional)
+- Proactive MQTT event alerts: on/off (T notifies Abdul of incoming MQTT state changes)
+
+---
+
+### Arduino Sketch
+
+`brain/hardware/arduino_sketch.ino` — ready-to-flash sketch implementing the T serial protocol.
+Abdul flashes this once. T handles the rest.
+
+Implements:
+- `PING` / `PONG` handshake
+- `DWRITE <pin> <HIGH|LOW>` — digital write
+- `DREAD <pin>` — digital read
+- `AREAD <pin>` — analog read (0–1023)
+- `DHT <pin>` — read DHT11/DHT22 temperature + humidity
+- `PWM <pin> <0-255>` — PWM output
+
+---
+
+### Dependencies to Add
+
+```
+pyserial>=3.5        ← serial port communication
+paho-mqtt>=2.0.0     ← MQTT client
+RPi.GPIO>=0.7.0; sys_platform == "linux"   ← Raspberry Pi GPIO (optional)
+```
+
+---
+
+### Files to Build
+
+- [ ] `brain/hardware/__init__.py`
+- [ ] `brain/hardware/registry.py`
+- [ ] `brain/hardware/serial_handler.py`
+- [ ] `brain/hardware/gpio_handler.py`
+- [ ] `brain/hardware/mqtt_handler.py`
+- [ ] `brain/hardware/command_router.py`
+- [ ] `brain/hardware/safety.py`
+- [ ] `brain/hardware/arduino_sketch.ino`
+- [ ] `brain/config/hardware_devices.yaml`
+- [ ] `brain/core/engine.py` — add hardware intent detection + `hardware_command` message handler
+- [ ] `brain/requirements.txt` — add pyserial, paho-mqtt, RPi.GPIO
+- [ ] `src/hooks/useBridge.ts` — handle `hardware_result`, `hardware_event`, `hardware_error`, `hardware_devices`
+- [ ] `src/components/settings/SettingsPanel.tsx` — add Hardware section
+
+**Done when**: Abdul says "turn on pin 13" → T shows what it will do → Abdul types YES → Arduino pin 13 goes HIGH → T reports "OK 13 HIGH". And "read temperature" returns temp + humidity from DHT22 with no confirmation needed.
+
+---
+
 ## Phase 8 — Offensive & Defensive Security (Full Spectrum)
 
 **Goal**: T has every attack and defense capability. Nothing executes without explicit user confirmation.
