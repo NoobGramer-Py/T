@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import type { VisualizerMode } from "../../store";
 
@@ -33,7 +33,55 @@ export function JarvisCoreVisualizer({ mode }: Props) {
   const modeRef  = useRef<VisualizerMode>(mode);
   const frameRef = useRef<number>(0);
 
+  const [timeStr, setTimeStr] = useState("");
+  const [dateStr, setDateStr] = useState("");
+  const [location, setLocation] = useState("LOCATING...");
+  const [weather, setWeather] = useState("SCANNING DATA");
+
   useEffect(() => { modeRef.current = mode; }, [mode]);
+
+  useEffect(() => {
+    // Clock
+    const timer = setInterval(() => {
+      const now = new Date();
+      setTimeStr(now.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+      setDateStr(now.toLocaleDateString("en-US", { weekday: "short", year: "numeric", month: "short", day: "numeric" }).toUpperCase());
+    }, 1000);
+
+    // Weather & Location
+    const fetchEnvData = async () => {
+      try {
+        const geoRes = await fetch("https://get.geojs.io/v1/ip/geo.json");
+        const geo = await geoRes.json();
+        const city = geo.city || "UNKNOWN";
+        const country = geo.country || "SYS";
+        setLocation(`${city}, ${country}`);
+
+        if (geo.latitude && geo.longitude) {
+          const wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${geo.latitude}&longitude=${geo.longitude}&current_weather=true`);
+          const w = await wRes.json();
+          const temp = w.current_weather?.temperature;
+          const code = w.current_weather?.weathercode || 0;
+          
+          let cond = "CLEAR";
+          if (code > 0) cond = "CLOUDY";
+          if (code > 50) cond = "RAIN";
+          if (code > 70) cond = "SNOW";
+          
+          setWeather(`${temp}°C | ${cond}`);
+        }
+      } catch (err) {
+        console.error("Failed to fetch live data", err);
+      }
+    };
+    fetchEnvData();
+    const envTimer = setInterval(fetchEnvData, 10 * 60 * 1000);
+
+    return () => {
+      clearInterval(timer);
+      clearInterval(envTimer);
+    };
+  }, []);
 
   useEffect(() => {
     const container = mountRef.current;
@@ -248,5 +296,38 @@ export function JarvisCoreVisualizer({ mode }: Props) {
     };
   }, []);
 
-  return <div ref={mountRef} style={{ width: "100%", height: "100%", minHeight: 300 }} />;
+  return (
+    <div style={{ position: "relative", width: "100%", height: "100%", minHeight: 300 }}>
+      {/* 3D Canvas */}
+      <div ref={mountRef} style={{ width: "100%", height: "100%", position: "absolute", inset: 0 }} />
+      
+      {/* HUD Overlays */}
+      <div style={{
+        position: "absolute", top: 15, right: 20,
+        fontFamily: "'Courier New', Courier, monospace",
+        color: "rgba(0,212,255,0.75)",
+        textAlign: "right",
+        textShadow: "0 0 8px rgba(0,212,255,0.4)",
+        pointerEvents: "none",
+        zIndex: 10
+      }}>
+        <div style={{ fontSize: 26, fontWeight: "bold", letterSpacing: 2 }}>{timeStr || "00:00:00"}</div>
+        <div style={{ fontSize: 12, letterSpacing: 1, marginTop: 2, opacity: 0.8 }}>{dateStr || "YYYY.MM.DD"}</div>
+      </div>
+
+      <div style={{
+        position: "absolute", bottom: 15, left: 20,
+        fontFamily: "'Courier New', Courier, monospace",
+        color: "rgba(0,212,255,0.65)",
+        textAlign: "left",
+        textShadow: "0 0 8px rgba(0,212,255,0.3)",
+        pointerEvents: "none",
+        zIndex: 10
+      }}>
+        <div style={{ fontSize: 10, letterSpacing: 2, opacity: 0.7, marginBottom: 4 }}>SYS.ENV.DATA</div>
+        <div style={{ fontSize: 14, letterSpacing: 1, marginBottom: 2 }}>LOC: <span style={{color: "#fff", textShadow: "0 0 5px rgba(255,255,255,0.3)"}}>{location}</span></div>
+        <div style={{ fontSize: 14, letterSpacing: 1 }}>WTH: <span style={{color: "#fff", textShadow: "0 0 5px rgba(255,255,255,0.3)"}}>{weather}</span></div>
+      </div>
+    </div>
+  );
 }

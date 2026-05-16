@@ -15,7 +15,6 @@ const NAV_ITEMS: NavItem[] = [
   { id: "hardware", label: "HW",      icon: "⌁", hint: "Hardware Control" },
   { id: "devices",  label: "DEV",     icon: "📱", hint: "Device Screen Mirror" },
   { id: "guardian", label: "GRD",     icon: "🛡", hint: "Guardian — Defensive Tools" },
-  { id: "studio",   label: "STD",     icon: "🎥", hint: "Animation Studio" },
   { id: "settings", label: "CFG",   icon: "⚙", hint: "Config & Memory"  },
 ];
 

@@ -12,7 +12,6 @@ import { SettingsPanel } from "./components/settings/SettingsPanel";
 import { HardwarePanel } from "./components/hardware/HardwarePanel";
 import { DevicesPanel }  from "./components/devices/DevicesPanel";
 import { GuardianPanel } from "./components/guardian/GuardianPanel";
-import { StudioPanel } from "./components/studio/StudioPanel";
 
 export default function App() {
   const activePanel = useTStore((s) => s.activePanel);
@@ -74,7 +73,6 @@ export default function App() {
         {activePanel === "hardware"  && <HardwarePanel />}
         {activePanel === "devices"   && <DevicesPanel />}
         {activePanel === "guardian"  && <GuardianPanel />}
-        {activePanel === "studio"    && <StudioPanel />}
         {activePanel === "settings"  && <SettingsPanel />}
       </div>
     </div>

@@ -29,14 +29,6 @@ def _detect_integration(content: str) -> tuple[str, dict] | None:
     """
     c = content.lower().strip()
 
-    # ── OpenToonz (must be checked BEFORE generic launch_app) ─────────────
-    # Detect any intent that references opentoonz / toonz — whether
-    # it's "open opentoonz", "in opentoonz draw a circle", "play the animation",
-    # or "create a new scene in opentoonz".
-    if "opentoonz" in c or "open toonz" in c or "toonz" in c:
-        actions = _parse_opentoonz_intent(c)
-        return ("opentoonz", {"actions": actions})
-
     # Weather
     weather_m = re.search(
         r"weather\s+(?:in|for|at|of)?\s*(.+)|"
@@ -153,137 +145,11 @@ def _detect_integration(content: str) -> tuple[str, dict] | None:
 
     return None
 
-
-def _parse_opentoonz_intent(text: str) -> list[dict]:
-    """
-    Parse a natural-language OpenToonz command into a LIST of sequential actions.
-    Supports compound commands like 'open opentoonz, create a new scene and draw a ball'.
-    Returns: [{"action": "open"}, {"action": "new_scene"}, {"action": "draw_stroke"}]
-    """
-    t = text.lower().strip()
-    actions: list[dict] = []
-
-    # Always ensure opentoonz is open first if user mentions opening / running it
-    if re.search(r"(?:open|launch|start|run)\s+(?:up\s+)?(?:opentoonz|open\s*toonz|toonz)", t):
-        actions.append({"action": "open"})
-    elif not actions:
-        # If they mention opentoonz at all, ensure it's focused first
-        actions.append({"action": "open"})
-
-    # Close / quit
-    if re.search(r"(?:close|quit|exit|shut\s*down)\s+(?:opentoonz|toonz)", t):
-        return [{"action": "close"}]
-
-    # New scene / project
-    if re.search(r"(?:new|create|make)\s+(?:a\s+)?(?:new\s+)?(?:scene|project|file|level)", t):
-        actions.append({"action": "new_scene"})
-
-    # Save
-    if re.search(r"save\s+(?:the\s+)?(?:scene|project|work|file)", t):
-        actions.append({"action": "save"})
-    elif "save as" in t:
-        actions.append({"action": "save_as"})
-
-    # Undo / Redo
-    if re.search(r"\bundo\b", t):
-        actions.append({"action": "undo"})
-    if re.search(r"\bredo\b", t):
-        actions.append({"action": "redo"})
-
-    # Playback
-    if re.search(r"(?:play|preview)\s+(?:the\s+)?(?:animation|timeline|scene|playback)", t):
-        actions.append({"action": "play"})
-    if re.search(r"(?:stop|pause)\s+(?:the\s+)?(?:animation|timeline|playback|playing)", t):
-        actions.append({"action": "stop"})
-
-    # Frame navigation
-    if re.search(r"(?:next|forward)\s+(?:\d+\s+)?frame", t):
-        m = re.search(r"(\d+)\s+frame", t)
-        count = int(m.group(1)) if m else 1
-        actions.append({"action": "next_frame", "count": count})
-    if re.search(r"(?:prev|previous|back)\s+(?:\d+\s+)?frame", t):
-        m = re.search(r"(\d+)\s+frame", t)
-        count = int(m.group(1)) if m else 1
-        actions.append({"action": "prev_frame", "count": count})
-    if re.search(r"(?:first|beginning)\s+frame", t):
-        actions.append({"action": "first_frame"})
-    if re.search(r"(?:last|end|final)\s+frame", t):
-        actions.append({"action": "last_frame"})
-
-    # Add / duplicate frame
-    if re.search(r"(?:add|insert)\s+(?:a\s+)?(?:blank\s+)?frame", t):
-        actions.append({"action": "add_frame"})
-    if re.search(r"(?:duplicate|copy|clone)\s+(?:this\s+|the\s+|current\s+)?frame", t):
-        actions.append({"action": "duplicate_frame"})
-
-    # Tool selection
-    if re.search(r"(?:select|switch\s+to|use|pick)\s+(?:the\s+)?(?:brush|pencil)\s*(?:tool)?", t):
-        actions.append({"action": "brush"})
-    if re.search(r"(?:select|switch\s+to|use|pick)\s+(?:the\s+)?eraser\s*(?:tool)?", t):
-        actions.append({"action": "eraser"})
-    if re.search(r"(?:select|switch\s+to|use|pick)\s+(?:the\s+)?(?:fill|paint|bucket)\s*(?:tool)?", t):
-        actions.append({"action": "fill"})
-
-    # Drawing (draw a ball, draw something, sketch, etc.)
-    if re.search(r"(?:draw|sketch|paint|stroke|scribble)\s+(?:a\s+)?(?:ball|circle|line|shape|something|stroke)", t):
-        actions.append({"action": "draw_stroke"})
-    elif re.search(r"\b(?:draw|sketch|paint)\b", t) and not any(a["action"] in ("brush", "eraser", "fill") for a in actions):
-        actions.append({"action": "draw_stroke"})
-
-    # Onion skin
-    if re.search(r"(?:onion\s*skin|toggle\s+onion)", t):
-        actions.append({"action": "onion_skin"})
-
-    # Render
-    if re.search(r"(?:render|export)\s+(?:the\s+)?(?:scene|animation|project)", t):
-        actions.append({"action": "render"})
-
-    return actions if actions else [{"action": "open"}]
-
-
 async def _handle_integration(client: "Client", msg_id: str, kind: str, params: dict) -> bool:
     """
     Handle a detected integration request directly.
     Returns True if handled, False if should fall through to LLM.
     """
-
-    # ── OpenToonz — separate handler with its own error boundary ──────────
-    # Checked FIRST so it never falls through to the LLM path.
-    if kind == "opentoonz":
-        try:
-            from integrations.opentoonz import execute as otoonz_exec
-        except Exception as e:
-            log.error(f"OpenToonz bridge import failed: {e}")
-            await client.send({"type": "chat_chunk", "id": msg_id,
-                               "chunk": f"❌ **OpenToonz bridge failed to load:** {e}\n"})
-            await client.send({"type": "chat_done", "id": msg_id, "provider": "opentoonz"})
-            return True  # Return True so it does NOT fall through to LLM
-
-        action_list = params.get("actions", [{"action": "open"}])
-        full_out = ""
-        await client.send({"type": "visualizer", "mode": "listening"})
-
-        for step in action_list:
-            action = step.get("action", "open")
-            action_params = {k: v for k, v in step.items() if k != "action"}
-            try:
-                result = await otoonz_exec(client, msg_id, action, action_params)
-                full_out += f"✅ {result}\n"
-                await client.send({"type": "chat_chunk", "id": msg_id,
-                                   "chunk": f"\n✅ **{result}**\n"})
-            except Exception as e:
-                err_msg = f"❌ Action '{action}' failed: {e}"
-                full_out += err_msg + "\n"
-                log.error(f"opentoonz action error: action={action} err={e}")
-                await client.send({"type": "chat_chunk", "id": msg_id,
-                                   "chunk": f"\n{err_msg}\n"})
-            await asyncio.sleep(0.3)  # small pause between actions
-
-        await client.send({"type": "chat_done", "id": msg_id, "provider": "opentoonz"})
-        await client.send({"type": "visualizer", "mode": "speaking"})
-        history = _histories.setdefault(client.id, [])
-        history.append({"role": "assistant", "content": full_out})
-        return True
 
     # ── All other integrations ────────────────────────────────────────────
     try:
