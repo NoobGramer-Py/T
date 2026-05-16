@@ -1,0 +1,68 @@
+{
+  "productName": "T",
+  "version": "1.0.0",
+  "identifier": "com.t.assistant",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "T — AI Core",
+        "url": "index.html",
+        "width": 1280,
+        "height": 820,
+        "minWidth": 900,
+        "minHeight": 600,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": true,
+        "transparent": false,
+        "center": true
+      },
+      {
+        "label": "hologram",
+        "title": "T — Holographic Core",
+        "url": "hologram.html",
+        "width": 540,
+        "height": 540,
+        "minWidth": 320,
+        "minHeight": 320,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": false,
+        "skipTaskbar": false,
+        "x": 80,
+        "y": 80,
+        "focus": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://unpkg.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://www.gravatar.com; connect-src 'self' ws://127.0.0.1:7891 ws://localhost:7891 https://api.groq.com https://ipapi.co https://bash.ws https://api.abuseipdb.com https://haveibeenpwned.com https://www.gravatar.com https://services.nvd.nist.gov https://www.virustotal.com http://localhost:11434"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "msi"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "displayLanguageSelector": false
+      }
+    },
+    "resources": ["../brain/**/*"]
+  }
+}

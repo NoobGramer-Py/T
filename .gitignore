@@ -1,0 +1,16 @@
+node_modules/
+src-tauri/target/
+src-tauri/gen/
+dist/
+.env
+*.db
+data/
+brain/data/
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+node_modules/
+dist/
+build/
+    

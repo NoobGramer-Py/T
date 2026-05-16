@@ -1,0 +1,48 @@
+# T Hardware Device Registry
+# Add your devices here. T reads this file at startup.
+# Edit freely — T will reload on next start.
+#
+# Device types: serial | mqtt | gpio
+#
+# Serial / GPIO fields:
+#   port: COM3          (Windows) or /dev/ttyUSB0 (Linux)
+#   baud: 9600          (omit to let T auto-detect)
+#
+# MQTT fields:
+#   broker: 192.168.1.100
+#   port_mqtt: 1883     (default 1883)
+#   topic_pub: home/device/set
+#   topic_sub: home/device/state
+#   mqtt_user: ""       (optional)
+#   mqtt_pass: ""       (optional)
+#
+# capabilities: list of what this device can do
+#   serial: digital_write, digital_read, analog_read, dht_read, pwm
+#   mqtt:   publish, subscribe
+
+devices: []
+
+# ── Example Arduino UNO on COM3 ───────────────────────────────────────────────
+# - id: arduino_uno
+#   type: serial
+#   port: COM3
+#   baud: 9600
+#   description: Arduino Uno — relay board + DHT22 sensor
+#   capabilities:
+#     - digital_write
+#     - digital_read
+#     - analog_read
+#     - dht_read
+#     - pwm
+
+# ── Example MQTT smart light ──────────────────────────────────────────────────
+# - id: bedroom_light
+#   type: mqtt
+#   broker: 192.168.1.100
+#   port_mqtt: 1883
+#   topic_pub: home/bedroom/light/set
+#   topic_sub: home/bedroom/light/state
+#   description: Smart bedroom light via MQTT
+#   capabilities:
+#     - publish
+#     - subscribe
