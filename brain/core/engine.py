@@ -82,6 +82,10 @@ def _detect_integration(content: str) -> tuple[str, dict] | None:
     if re.search(r"(system|machine|pc|computer)\s+(info|information|specs|details|status)", c):
         return ("system_info", {})
 
+    # Network scan
+    if re.search(r"scan\s+(?:the\s+)?(?:ip'?s|network|devices?)(?:\s+of\s+nearby\s+devices?)?", c, re.IGNORECASE):
+        return ("network_scan", {})
+
     # Screenshot
     if re.search(r"(take|grab|capture)\s+(?:a\s+)?screenshot", c):
         return ("screenshot", {})
@@ -155,7 +159,7 @@ async def _handle_integration(client: "Client", msg_id: str, kind: str, params: 
     try:
         from integrations.web import web_search, get_weather, fetch_url, get_news
         from integrations.system_control import (
-            launch_app, get_clipboard, get_system_info, take_screenshot
+            launch_app, get_clipboard, get_system_info, take_screenshot, scan_network
         )
 
         if kind == "weather":
@@ -170,6 +174,8 @@ async def _handle_integration(client: "Client", msg_id: str, kind: str, params: 
             result = await launch_app(params["name"])
         elif kind == "system_info":
             result = await get_system_info()
+        elif kind == "network_scan":
+            result = await scan_network()
         elif kind == "screenshot":
             result = await take_screenshot()
         elif kind == "get_clipboard":

@@ -243,6 +243,53 @@ async def get_system_info() -> str:
         "\"RAM: ${free}GB free / ${mem}GB total\"; "
         "\"Uptime: $([math]::Floor($uptime.TotalHours))h $($uptime.Minutes)m\"; "
         "\"User: $env:USERNAME on $env:COMPUTERNAME\"; "
-        "\"IP: $((Get-NetIPAddress -AddressFamily IPv4 | Where-Object {$_.InterfaceAlias -notlike '*Loopback*'} | Select-Object -First 1).IPAddress)\""
-    )
     return await _ps(cmd)
+
+
+async def scan_network() -> str:
+    """Scan the local network for nearby devices and routers."""
+    cmd = r'''
+$arp = arp -a
+$results = @()
+foreach ($line in $arp) {
+    if ($line -match '^\s*([0-9\.]+)\s+([0-9a-f\-]+)\s+(dynamic)') {
+        $ip = $matches[1]
+        $mac = $matches[2]
+        $results += [PSCustomObject]@{ IP = $ip; MAC = $mac }
+    }
+}
+$results | ConvertTo-Json -Compress
+'''
+    result = await _ps(cmd, timeout=30)
+    if not result.strip() or "No dynamic" in result or result.startswith("["):
+        return "No nearby devices found in ARP cache."
+    
+    import json
+    try:
+        devices = json.loads(result)
+        if isinstance(devices, dict):
+            devices = [devices]
+    except Exception as e:
+        return f"Scan completed but failed to parse results: {e}\nRaw: {result}"
+    
+    if not devices:
+        return "No nearby devices found."
+
+    output = "### 📡 Network Scan Results\n\n"
+    output += "| IP Address | MAC Address | Device Name | Location |\n"
+    output += "|------------|-------------|-------------|----------|\n"
+    for d in devices:
+        ip = d.get("IP", "")
+        mac = d.get("MAC", "")
+        if ip.endswith(".1"):
+            name = "Gateway / Router"
+            loc = "Local Network (Gateway)"
+        elif ip.endswith(".255"):
+            continue
+        else:
+            name = "Nearby Device"
+            loc = "Local Network"
+            
+        output += f"| {ip} | {mac} | {name} | {loc} |\n"
+        
+    return output

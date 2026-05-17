@@ -128,7 +128,7 @@
 </head>
 <body>
 
-<div id="drag-region"></div>
+<div id="drag-region" data-tauri-drag-region></div>
 
 <div class="bracket tl"></div>
 <div class="bracket tr"></div>
@@ -212,7 +212,7 @@ function updateTickers() {
 
   // Ping WS to check brain status
   try {
-    const ws = new WebSocket('ws://127.0.0.1:7891');
+    const ws = new WebSocket('ws://127.0.0.1:7891/ws');
     ws.onopen  = () => {
       document.getElementById('val-status').textContent = 'ONLINE';
       document.getElementById('val-status').style.color = 'rgba(0,255,136,0.7)';
