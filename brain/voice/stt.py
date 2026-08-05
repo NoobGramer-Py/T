@@ -3,7 +3,7 @@ import threading
 import numpy as np
 import sounddevice as sd
 import wave
-from core.logger import get_logger
+from brain.logging.logger import get_logger
 
 log = get_logger("voice.stt")
 

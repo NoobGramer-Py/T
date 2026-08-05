@@ -243,6 +243,7 @@ async def get_system_info() -> str:
         "\"RAM: ${free}GB free / ${mem}GB total\"; "
         "\"Uptime: $([math]::Floor($uptime.TotalHours))h $($uptime.Minutes)m\"; "
         "\"User: $env:USERNAME on $env:COMPUTERNAME\"; "
+    )
     return await _ps(cmd)
 
 

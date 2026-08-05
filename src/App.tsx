@@ -5,8 +5,6 @@ import { useBrainConnection, useBrainProfileSync, useBrainMemory } from "./hooks
 import { TopBar } from "./components/hud/TopBar";
 import { SideNav } from "./components/hud/SideNav";
 import { ChatPanel } from "./components/chat/ChatPanel";
-import { SecurityPanel } from "./components/security/SecurityPanel";
-import { SystemPanel } from "./components/system/SystemPanel";
 import { NetworkPanel } from "./components/network/NetworkPanel";
 import { SettingsPanel } from "./components/settings/SettingsPanel";
 import { HardwarePanel } from "./components/hardware/HardwarePanel";
@@ -67,8 +65,6 @@ export default function App() {
         zIndex: 10, overflow: "hidden",
       }}>
         {activePanel === "chat"     && <ChatPanel />}
-        {activePanel === "security" && <SecurityPanel />}
-        {activePanel === "system"   && <SystemPanel />}
         {activePanel === "network"  && <NetworkPanel />}
         {activePanel === "hardware"  && <HardwarePanel />}
         {activePanel === "devices"   && <DevicesPanel />}

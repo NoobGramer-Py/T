@@ -1,14 +1,14 @@
 import { useEffect, useCallback } from "react";
 import {
-  loadRecentMessages, saveMessage,
+  getAllSessions, loadSessionMessages, saveMessage,
   getProfile,
   getAllMemories,
 } from "../lib/tauri";
 import { useTStore } from "../store";
 
-// Boots memory on first load: pulls profile + last 30 messages from SQLite into store.
+// Boots memory on first load: pulls profile + sessions + active session messages from SQLite into store.
 export function useMemoryBoot() {
-  const { memoryLoaded, setMemoryLoaded, addMessage, clearChat, setProfile } = useTStore();
+  const { memoryLoaded, setMemoryLoaded, setSessions, setActiveSessionId, setMessages, setProfile } = useTStore();
 
   useEffect(() => {
     if (memoryLoaded) return;
@@ -33,11 +33,19 @@ export function useMemoryBoot() {
           vmSshPass:     profileMap["vmSshPass"]     ?? "",
         });
 
-        // Load last 30 messages and rehydrate chat
-        const history = await loadRecentMessages(30);
-        if (history.length > 0) {
-          clearChat();
-          history.forEach((m) => addMessage(m.role as "user" | "assistant", m.content));
+        // Load sessions
+        const storedSessions = await getAllSessions();
+        if (storedSessions.length > 0) {
+          setSessions(storedSessions);
+          const currentId = storedSessions[0].id;
+          setActiveSessionId(currentId);
+          const history = await loadSessionMessages(currentId);
+          if (history.length > 0) {
+            setMessages(history.map(m => ({ id: String(m.id), role: m.role, content: m.content, timestamp: m.timestamp })));
+          }
+        } else {
+          // Default initial session
+          setSessions([{ id: "default", title: "Main Chat", created_at: Date.now() }]);
         }
       } catch {
         // DB not available (browser dev mode) — no-op
@@ -47,18 +55,19 @@ export function useMemoryBoot() {
     };
 
     boot();
-  }, [memoryLoaded, setMemoryLoaded, addMessage, clearChat, setProfile]);
+  }, [memoryLoaded, setMemoryLoaded, setSessions, setActiveSessionId, setMessages, setProfile]);
 }
 
-// Persists a message to SQLite. Called by useChat after every send/receive.
+// Persists a message to SQLite under active session. Called by useChat after every send/receive.
 export function usePersistMessage() {
-  return useCallback(async (role: "user" | "assistant", content: string) => {
+  const activeSessionId = useTStore((s) => s.activeSessionId);
+  return useCallback(async (role: "user" | "assistant", content: string, sessionId?: string) => {
     try {
-      await saveMessage(role, content, Date.now());
+      await saveMessage(sessionId || activeSessionId || "default", role, content, Date.now());
     } catch {
       // Non-critical — silently ignore in dev mode
     }
-  }, []);
+  }, [activeSessionId]);
 }
 
 // Builds a memory context string injected into every AI prompt.

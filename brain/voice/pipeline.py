@@ -1,8 +1,8 @@
 import asyncio
 from typing import TYPE_CHECKING
-from core.logger import get_logger
-from voice.stt import Recorder, transcribe
-from voice.tts import synthesize
+from brain.logging.logger import get_logger
+from brain.voice.stt import Recorder, transcribe
+from brain.voice.tts import synthesize
 
 if TYPE_CHECKING:
     from core.ws_server import Client

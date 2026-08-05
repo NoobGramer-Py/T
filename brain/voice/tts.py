@@ -2,7 +2,7 @@ import io
 import base64
 import wave
 import numpy as np
-from core.logger import get_logger
+from brain.logging.logger import get_logger
 
 log = get_logger("voice.tts")
 

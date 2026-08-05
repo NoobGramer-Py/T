@@ -4,7 +4,7 @@ import { create } from "zustand";
 
 export type VisualizerMode = "idle" | "listening" | "speaking";
 export type MessageRole    = "user" | "assistant";
-export type ActivePanel    = "chat" | "security" | "system" | "network" | "settings" | "hardware" | "devices" | "guardian";
+export type ActivePanel    = "chat" | "network" | "settings" | "hardware" | "devices" | "guardian";
 
 export interface Message {
   id:        string;
@@ -44,17 +44,30 @@ export interface VoiceSettings {
   voiceName: string;  // SpeechSynthesisVoice.name, "" = system default
 }
 
+export interface ChatSessionItem {
+  id:         string;
+  title:      string;
+  created_at: number;
+}
+
 export interface TStore {
   // ── Visualizer
   visualizerMode:    VisualizerMode;
   setVisualizerMode: (m: VisualizerMode) => void;
 
-  // ── Chat
-  messages:   Message[];
-  addMessage: (role: MessageRole, content: string) => void;
-  clearChat:  () => void;
-  isTyping:   boolean;
-  setTyping:  (v: boolean) => void;
+  // ── Chat & Sessions
+  activeSessionId:   string;
+  setActiveSessionId:(id: string) => void;
+  sessions:          ChatSessionItem[];
+  setSessions:       (sessions: ChatSessionItem[]) => void;
+  addSession:        (session: ChatSessionItem) => void;
+  removeSession:     (id: string) => void;
+  messages:          Message[];
+  setMessages:       (messages: Message[]) => void;
+  addMessage:        (role: MessageRole, content: string) => void;
+  clearChat:         () => void;
+  isTyping:          boolean;
+  setTyping:         (v: boolean) => void;
 
   // ── Navigation
   activePanel: ActivePanel;
@@ -99,10 +112,17 @@ export const useTStore = create<TStore>((set) => ({
     set({ visualizerMode });
   },
 
-  // ── Chat
+  // ── Chat & Sessions
+  activeSessionId:   "default",
+  setActiveSessionId:(activeSessionId) => set({ activeSessionId }),
+  sessions:          [],
+  setSessions:       (sessions) => set({ sessions }),
+  addSession:        (session) => set((s) => ({ sessions: [session, ...s.sessions.filter(x => x.id !== session.id)] })),
+  removeSession:     (id) => set((s) => ({ sessions: s.sessions.filter((x) => x.id !== id) })),
   messages: [
     { id: "boot", role: "assistant", content: "T ONLINE. All systems nominal. How can I assist you?", timestamp: Date.now() },
   ],
+  setMessages: (messages) => set({ messages }),
   addMessage: (role, content) =>
     set((s) => ({
       messages: [...s.messages, { id: crypto.randomUUID(), role, content, timestamp: Date.now() }],

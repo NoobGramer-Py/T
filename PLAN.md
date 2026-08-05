@@ -13,7 +13,7 @@ It is the most complete codebase and serves as the foundation.
 
 Two additional codebases exist outside this repo:
 - **Python full backend** (Structure 2) — agents, hardware, integrations, perception, proactive engine
-- **t-assistant** (Structure 3) — clean voice pipeline (Porcupine + Whisper + Kokoro)
+- **t-assistant** (Structure 3) — clean voice pipeline (Whisper + Kokoro)
 
 ---
 
@@ -31,10 +31,10 @@ Two additional codebases exist outside this repo:
 │              Python Brain                    │
 │  FastAPI + WebSocket server (port 7891)      │
 │  core/engine.py — central router             │
-│  agents/ — planner, executor, confirmation  │
+│  agents/ — executor                         │
 │  memory/ — short-term + ChromaDB long-term  │
-│  voice/ — Porcupine wake + Whisper + Kokoro │
-│  integrations/ — calendar, email, web       │
+│  voice/ — Whisper + Kokoro                  │
+│  integrations/ — web, system                │
 │  proactive/ — alerts, monitors, suggestions │
 │  hardware/ — serial, GPIO, MQTT              │
 └─────────────────────────────────────────────┘
@@ -187,16 +187,14 @@ T/                                  ← Tauri desktop app (exists)
 ---
 
 ### Phase 3 — Voice Pipeline
-**Goal**: Wake word → STT → brain → TTS. Fully local, no cloud required.
+**Goal**: STT → brain → TTS. Fully local, no cloud required.
 
-- [ ] `brain/voice/vad.py` — voice activity detection
-- [ ] `brain/voice/wake_word.py` — Porcupine "Hey T" detection
 - [ ] `brain/voice/stt.py` — Whisper transcription
 - [ ] `brain/voice/tts.py` — Kokoro offline TTS, ElevenLabs optional
 - [ ] Brain sends TTS audio back over WebSocket for Tauri to play
 - [ ] Visualizer state (idle/listening/speaking) driven by brain events
 
-**Done when**: Say "Hey T" → it listens → transcribes → responds with voice.
+**Done when**: Audio is captured → transcribes → responds with voice.
 
 ---
 
@@ -205,27 +203,23 @@ T/                                  ← Tauri desktop app (exists)
 
 - [ ] `brain/core/tool_registry.py` — all callable tools registered here
 - [ ] `brain/core/bus.py` — internal event bus connecting modules
-- [ ] `brain/agents/planner.py` — breaks requests into ordered subtasks
+- [ ] `brain/autonomous/planner.py` — breaks requests into ordered subtasks
 - [ ] `brain/agents/executor.py` — executes steps, calls tools, handles Tauri commands
-- [ ] `brain/agents/confirmation.py` — intercepts irreversible actions, asks user
-- [ ] `brain/agents/recovery.py` — handles failed steps, retries alternatives
 
 **Done when**: "Open Chrome, go to GitHub, clone my latest repo" executes as a plan.
 
 ---
 
 ### Phase 5 — Integrations
-**Goal**: T can interact with calendar, email, web, and system apps.
+**Goal**: T can interact with web and system apps.
 
 - [ ] `brain/integrations/web/search.py` — web search
 - [ ] `brain/integrations/web/weather.py` — weather
 - [ ] `brain/integrations/web/news.py` — news headlines
 - [ ] `brain/integrations/system/apps.py` — launch/control apps
 - [ ] `brain/integrations/system/browser.py` — browser automation
-- [ ] `brain/integrations/calendar/google_calendar.py`
-- [ ] `brain/integrations/email/gmail.py`
 
-**Done when**: "What's on my calendar tomorrow?" and "Search for recent CVEs in OpenSSL" both work.
+**Done when**: "Search for recent CVEs in OpenSSL" works.
 
 ---
 

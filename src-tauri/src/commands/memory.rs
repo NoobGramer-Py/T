@@ -1,11 +1,31 @@
 use serde::Serialize;
 use crate::db::memory as db;
 
-// ─── Messages ─────────────────────────────────────────────────────────────────
+// ─── Messages & Sessions ──────────────────────────────────────────────────────
 
 #[tauri::command]
-pub fn save_message(role: String, content: String, timestamp: i64) -> Result<(), String> {
-    db::save_message(&role, &content, timestamp).map_err(|e| e.to_string())
+pub fn save_session(id: String, title: String, created_at: i64) -> Result<(), String> {
+    db::save_session(&id, &title, created_at).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_all_sessions() -> Result<Vec<db::ChatSession>, String> {
+    db::get_all_sessions().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn delete_session(id: String) -> Result<(), String> {
+    db::delete_session(&id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn save_message(session_id: String, role: String, content: String, timestamp: i64) -> Result<(), String> {
+    db::save_message(&session_id, &role, &content, timestamp).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn load_session_messages(session_id: String) -> Result<Vec<db::StoredMessage>, String> {
+    db::load_session_messages(&session_id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

@@ -21,8 +21,10 @@ export function useChat() {
       const trimmed = userInput.trim();
       if (!trimmed) return;
 
+      const currentSessionId = useTStore.getState().activeSessionId || "default";
+
       addMessage("user", trimmed);
-      await persist("user", trimmed);
+      await persist("user", trimmed, currentSessionId);
 
       setTyping(true);
       setVisualizerMode("listening");
@@ -37,6 +39,7 @@ export function useChat() {
 
         const sent = brainChat.send(
           id,
+          currentSessionId,
           trimmed,
           (chunk) => {
             accumulated += chunk;
@@ -54,7 +57,7 @@ export function useChat() {
           },
           async (provider) => {
             setProvider(provider as "groq" | "ollama");
-            await persist("assistant", accumulated);
+            await persist("assistant", accumulated, currentSessionId);
             speak(accumulated);
             setTimeout(() => setVisualizerMode("idle"), 8000);
             setTyping(false);
@@ -95,7 +98,7 @@ export function useChat() {
         const { text, provider } = await sendMessage(history, "");
         setProvider(provider);
         addMessage("assistant", text);
-        await persist("assistant", text);
+        await persist("assistant", text, currentSessionId);
         setVisualizerMode("speaking");
         speak(text);
         setTimeout(() => setVisualizerMode("idle"), 8000);

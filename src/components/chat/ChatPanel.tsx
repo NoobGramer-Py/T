@@ -91,7 +91,11 @@ function MessageBubble({ role, content, timestamp }: {
 
 // ── Main panel ─────────────────────────────────────────────────────────────────
 export function ChatPanel() {
-  const { messages, isTyping, voiceEnabled, voiceListening } = useTStore();
+  const {
+    messages, isTyping, voiceEnabled, voiceListening,
+    sessions, activeSessionId, setActiveSessionId, setMessages,
+    addSession, removeSession,
+  } = useTStore();
   const { send }   = useChat();
   const [input, setInput] = useState("");
   const bottomRef  = useRef<HTMLDivElement>(null);
@@ -106,6 +110,60 @@ export function ChatPanel() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
+
+  // Handle switching chat sessions
+  const handleSelectSession = async (id: string) => {
+    if (id === activeSessionId) return;
+    setActiveSessionId(id);
+    try {
+      const { loadSessionMessages } = await import("../../lib/tauri");
+      const history = await loadSessionMessages(id);
+      setMessages(history.map(m => ({ id: String(m.id), role: m.role, content: m.content, timestamp: m.timestamp })));
+    } catch {
+      setMessages([]);
+    }
+  };
+
+  // Handle creating a new chat session
+  const handleNewChat = async () => {
+    const newId = crypto.randomUUID();
+    const title = `Chat ${new Date().toLocaleTimeString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}`;
+    const created_at = Date.now();
+    const newSession = { id: newId, title, created_at };
+
+    addSession(newSession);
+    setActiveSessionId(newId);
+    setMessages([
+      { id: "boot", role: "assistant", content: "NEW CHAT INITIALIZED. How can I help you?", timestamp: created_at }
+    ]);
+
+    try {
+      const { saveSession, saveMessage } = await import("../../lib/tauri");
+      await saveSession(newId, title, created_at);
+      await saveMessage(newId, "assistant", "NEW CHAT INITIALIZED. How can I help you?", created_at);
+    } catch {
+      // Browser fallback
+    }
+  };
+
+  // Handle deleting a chat session
+  const handleDeleteSession = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    removeSession(id);
+    try {
+      const { deleteSession: apiDelete } = await import("../../lib/tauri");
+      await apiDelete(id);
+    } catch {}
+
+    if (id === activeSessionId) {
+      const remaining = sessions.filter(s => s.id !== id);
+      if (remaining.length > 0) {
+        handleSelectSession(remaining[0].id);
+      } else {
+        handleNewChat();
+      }
+    }
+  };
 
   const handleSend = () => {
     if (!input.trim() || isTyping) return;
@@ -146,11 +204,99 @@ export function ChatPanel() {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
-
   return (
     <div style={{ display: "flex", height: "100%", gap: 0 }}>
 
-      {/* ── Chat column — full width ──────────────────────────────────────── */}
+      {/* ── Sessions Sidebar ────────────────────────────────────────────────── */}
+      <div style={{
+        width: 230,
+        background: "rgba(0,8,20,0.85)",
+        borderRight: "1px solid rgba(0,212,255,0.08)",
+        display: "flex", flexDirection: "column",
+        overflow: "hidden",
+      }}>
+        {/* New Chat Button */}
+        <div style={{ padding: "12px 14px", borderBottom: "1px solid rgba(0,212,255,0.08)" }}>
+          <button
+            onClick={handleNewChat}
+            style={{
+              width: "100%", padding: "8px 12px",
+              background: "linear-gradient(135deg, rgba(0,212,255,0.12), rgba(0,136,204,0.06))",
+              border: "1px solid rgba(0,212,255,0.35)",
+              borderRadius: 4, cursor: "pointer",
+              color: "#00d4ff", fontSize: 10, letterSpacing: 2,
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              boxShadow: "0 0 12px rgba(0,212,255,0.08)",
+              fontFamily: "'Courier New', Courier, monospace",
+              fontWeight: "bold",
+            }}
+          >
+            <span style={{ fontSize: 14 }}>+</span> NEW CHAT
+          </button>
+        </div>
+
+        {/* Sessions List */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "10px 8px", display: "flex", flexDirection: "column", gap: 4 }}>
+          <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(0,212,255,0.3)", padding: "4px 8px", marginBottom: 2 }}>
+            SAVED CHATS
+          </div>
+          {sessions.length === 0 && (
+            <div style={{ fontSize: 9, color: "rgba(0,212,255,0.25)", padding: 8, fontStyle: "italic" }}>
+              No previous chats
+            </div>
+          )}
+          {sessions.map((s) => {
+            const active = s.id === activeSessionId;
+            const dateStr = new Date(s.created_at).toLocaleString("en-US", {
+              month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"
+            });
+            return (
+              <div
+                key={s.id}
+                onClick={() => handleSelectSession(s.id)}
+                style={{
+                  padding: "8px 10px",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                  background: active ? "rgba(0,212,255,0.12)" : "rgba(0,212,255,0.02)",
+                  border: `1px solid ${active ? "rgba(0,212,255,0.3)" : "rgba(0,212,255,0.05)"}`,
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                <div style={{ display: "flex", flexDirection: "column", gap: 3, overflow: "hidden" }}>
+                  <span style={{
+                    fontSize: 10, color: active ? "#00d4ff" : "rgba(0,212,255,0.7)",
+                    whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                  }}>
+                    {s.title}
+                  </span>
+                  <span style={{ fontSize: 7, color: "rgba(0,212,255,0.35)", fontVariantNumeric: "tabular-nums" }}>
+                    {dateStr}
+                  </span>
+                </div>
+                {sessions.length > 1 && (
+                  <button
+                    onClick={(e) => handleDeleteSession(e, s.id)}
+                    title="Delete Chat"
+                    style={{
+                      background: "transparent", border: "none",
+                      color: "rgba(0,212,255,0.3)", cursor: "pointer",
+                      fontSize: 11, padding: "2px 4px",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = "#ff4444")}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(0,212,255,0.3)")}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Chat column — main area ──────────────────────────────────────── */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
         {/* Header strip */}
@@ -161,7 +307,9 @@ export function ChatPanel() {
           background: "rgba(0,212,255,0.012)",
         }}>
           <div style={{ height: 1, flex: 1, background: "linear-gradient(to right, rgba(0,212,255,0.12), transparent)" }} />
-          <span style={{ fontSize: 7, letterSpacing: 5, color: "rgba(0,212,255,0.25)" }}>COMMS CHANNEL</span>
+          <span style={{ fontSize: 7, letterSpacing: 5, color: "rgba(0,212,255,0.25)" }}>
+            SESSION: {sessions.find(s => s.id === activeSessionId)?.title || "ACTIVE"}
+          </span>
           <div style={{ height: 1, flex: 1, background: "linear-gradient(to left, rgba(0,212,255,0.12), transparent)" }} />
         </div>
 

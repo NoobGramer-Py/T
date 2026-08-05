@@ -23,11 +23,18 @@ fn init_schema(conn: &Connection) -> rusqlite::Result<()> {
         PRAGMA journal_mode = WAL;
         PRAGMA foreign_keys = ON;
 
+        CREATE TABLE IF NOT EXISTS chat_sessions (
+            id         TEXT PRIMARY KEY,
+            title      TEXT NOT NULL,
+            created_at INTEGER NOT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS messages (
-            id        INTEGER PRIMARY KEY AUTOINCREMENT,
-            role      TEXT    NOT NULL CHECK (role IN ('user', 'assistant')),
-            content   TEXT    NOT NULL,
-            timestamp INTEGER NOT NULL
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT    NOT NULL DEFAULT 'default',
+            role       TEXT    NOT NULL CHECK (role IN ('user', 'assistant')),
+            content    TEXT    NOT NULL,
+            timestamp  INTEGER NOT NULL
         );
 
         CREATE TABLE IF NOT EXISTS memories (

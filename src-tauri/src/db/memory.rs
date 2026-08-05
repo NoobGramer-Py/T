@@ -9,34 +9,88 @@ fn now_secs() -> i64 {
         .as_secs() as i64
 }
 
-// ─── Messages ─────────────────────────────────────────────────────────────────
+// ─── Messages & Sessions ──────────────────────────────────────────────────────
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct ChatSession {
+    pub id:         String,
+    pub title:      String,
+    pub created_at: i64,
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct StoredMessage {
-    pub id:        i64,
-    pub role:      String,
-    pub content:   String,
-    pub timestamp: i64,
+    pub id:         i64,
+    pub session_id: String,
+    pub role:       String,
+    pub content:    String,
+    pub timestamp:  i64,
 }
 
-pub fn save_message(role: &str, content: &str, timestamp: i64) -> rusqlite::Result<()> {
+pub fn save_session(id: &str, title: &str, created_at: i64) -> rusqlite::Result<()> {
     let conn = open()?;
     conn.execute(
-        "INSERT INTO messages (role, content, timestamp) VALUES (?1, ?2, ?3)",
-        params![role, content, timestamp],
+        "INSERT INTO chat_sessions (id, title, created_at) VALUES (?1, ?2, ?3)
+         ON CONFLICT(id) DO UPDATE SET title = ?2",
+        params![id, title, created_at],
     )?;
     Ok(())
+}
+
+pub fn get_all_sessions() -> rusqlite::Result<Vec<ChatSession>> {
+    let conn = open()?;
+    let mut stmt = conn.prepare(
+        "SELECT id, title, created_at FROM chat_sessions ORDER BY created_at DESC"
+    )?;
+    let sessions: Vec<ChatSession> = stmt.query_map([], |row| {
+        Ok(ChatSession {
+            id: row.get(0)?,
+            title: row.get(1)?,
+            created_at: row.get(2)?,
+        })
+    })?.filter_map(|r| r.ok()).collect();
+    Ok(sessions)
+}
+
+pub fn delete_session(id: &str) -> rusqlite::Result<()> {
+    let conn = open()?;
+    conn.execute("DELETE FROM messages WHERE session_id = ?1", params![id])?;
+    conn.execute("DELETE FROM chat_sessions WHERE id = ?1", params![id])?;
+    Ok(())
+}
+
+pub fn save_message(session_id: &str, role: &str, content: &str, timestamp: i64) -> rusqlite::Result<()> {
+    let conn = open()?;
+    conn.execute(
+        "INSERT INTO messages (session_id, role, content, timestamp) VALUES (?1, ?2, ?3, ?4)",
+        params![session_id, role, content, timestamp],
+    )?;
+    Ok(())
+}
+
+pub fn load_session_messages(session_id: &str) -> rusqlite::Result<Vec<StoredMessage>> {
+    let conn = open()?;
+    let mut stmt = conn.prepare(
+        "SELECT id, session_id, role, content, timestamp FROM messages WHERE session_id = ?1 ORDER BY id ASC"
+    )?;
+    let msgs: Vec<StoredMessage> = stmt.query_map(params![session_id], |row| {
+        Ok(StoredMessage {
+            id: row.get(0)?, session_id: row.get(1)?, role: row.get(2)?,
+            content: row.get(3)?, timestamp: row.get(4)?,
+        })
+    })?.filter_map(|r| r.ok()).collect();
+    Ok(msgs)
 }
 
 pub fn load_recent_messages(limit: u32) -> rusqlite::Result<Vec<StoredMessage>> {
     let conn = open()?;
     let mut stmt = conn.prepare(
-        "SELECT id, role, content, timestamp FROM messages ORDER BY id DESC LIMIT ?1"
+        "SELECT id, session_id, role, content, timestamp FROM messages ORDER BY id DESC LIMIT ?1"
     )?;
     let mut msgs: Vec<StoredMessage> = stmt.query_map(params![limit], |row| {
         Ok(StoredMessage {
-            id: row.get(0)?, role: row.get(1)?,
-            content: row.get(2)?, timestamp: row.get(3)?,
+            id: row.get(0)?, session_id: row.get(1)?, role: row.get(2)?,
+            content: row.get(3)?, timestamp: row.get(4)?,
         })
     })?.filter_map(|r| r.ok()).collect();
     msgs.reverse();
@@ -44,7 +98,9 @@ pub fn load_recent_messages(limit: u32) -> rusqlite::Result<Vec<StoredMessage>> 
 }
 
 pub fn clear_messages() -> rusqlite::Result<()> {
-    open()?.execute("DELETE FROM messages", [])?;
+    let conn = open()?;
+    conn.execute("DELETE FROM messages", [])?;
+    conn.execute("DELETE FROM chat_sessions", [])?;
     Ok(())
 }
 

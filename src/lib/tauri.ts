@@ -109,11 +109,18 @@ export const getHttpHeaders       = (url: string) => invoke<HttpHeaderResult>("g
 
 // ─── Memory ───────────────────────────────────────────────────────────────────
 
+export interface ChatSession {
+  id:         string;
+  title:      string;
+  created_at: number;
+}
+
 export interface StoredMessage {
-  id:        number;
-  role:      "user" | "assistant";
-  content:   string;
-  timestamp: number;
+  id:         number;
+  session_id: string;
+  role:       "user" | "assistant";
+  content:    string;
+  timestamp:  number;
 }
 
 export interface MemoryEntry {
@@ -152,9 +159,13 @@ export interface ClipboardEntry {
   saved_at: number;
 }
 
-export const saveMessage           = (role: string, content: string, timestamp: number) => invoke<void>("save_message", { role, content, timestamp });
-export const loadRecentMessages    = (limit: number) => invoke<StoredMessage[]>("load_recent_messages", { limit });
-export const clearMessages         = () => invoke<void>("clear_messages");
+export const saveSession            = (id: string, title: string, created_at: number) => invoke<void>("save_session", { id, title, created_at });
+export const getAllSessions         = () => invoke<ChatSession[]>("get_all_sessions");
+export const deleteSession          = (id: string) => invoke<void>("delete_session", { id });
+export const saveMessage            = (session_id: string, role: string, content: string, timestamp: number) => invoke<void>("save_message", { session_id, role, content, timestamp });
+export const loadSessionMessages     = (session_id: string) => invoke<StoredMessage[]>("load_session_messages", { session_id });
+export const loadRecentMessages     = (limit: number) => invoke<StoredMessage[]>("load_recent_messages", { limit });
+export const clearMessages          = () => invoke<void>("clear_messages");
 export const setMemory             = (key: string, value: string) => invoke<void>("set_memory", { key, value });
 export const getAllMemories         = () => invoke<MemoryEntry[]>("get_all_memories");
 export const deleteMemory          = (key: string) => invoke<void>("delete_memory", { key });
@@ -245,6 +256,8 @@ function mockInvoke<T>(cmd: string, _args?: Record<string, unknown>): T {
     whois_lookup:        "Domain: mock.example\nRegistrar: Mock Registrar\nCreated: 2020-01-01",
     scan_local_network:  [{ ip: "192.168.1.1", mac: "AA:BB:CC:DD:EE:FF", hostname: "router", vendor: "Cisco" }],
     // Memory
+    save_session:          null, get_all_sessions:      [],
+    delete_session:        null, load_session_messages: [],
     save_message:          null, clear_messages:       null,
     load_recent_messages:  [],   get_all_memories:     [],
     set_memory:            null, delete_memory:        null,

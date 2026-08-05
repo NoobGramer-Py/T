@@ -9,8 +9,6 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { id: "chat",     label: "CORE",  icon: "◎", hint: "AI Interface"     },
-  { id: "security", label: "SEC",   icon: "⬡", hint: "Cyber Security"   },
-  { id: "system",   label: "SYS",   icon: "⊞", hint: "System Control"   },
   { id: "network",  label: "NET",   icon: "⊹", hint: "Network Intel"    },
   { id: "hardware", label: "HW",      icon: "⌁", hint: "Hardware Control" },
   { id: "devices",  label: "DEV",     icon: "📱", hint: "Device Screen Mirror" },

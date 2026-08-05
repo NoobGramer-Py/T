@@ -137,13 +137,14 @@ export function useBrainChat() {
   }, []);
 
   const send = useCallback((
-    id:      string,
-    content: string,
-    onChunk: (chunk: string) => void,
-    onDone:  (provider: string) => void,
-    onError: (err: string) => void,
+    id:        string,
+    sessionId: string,
+    content:   string,
+    onChunk:   (chunk: string) => void,
+    onDone:    (provider: string) => void,
+    onError:   (err: string) => void,
   ): boolean => {
-    const sent = bridge.send({ type: "chat", id, content });
+    const sent = bridge.send({ type: "chat", id, session_id: sessionId, content });
     if (sent) {
       pendingRef.current.set(id, { onChunk, onDone, onError });
     }

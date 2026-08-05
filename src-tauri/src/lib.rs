@@ -53,7 +53,11 @@ pub fn run() {
             network::check_ssl_cert,
             network::get_http_headers,
             // Memory
+            memory::save_session,
+            memory::get_all_sessions,
+            memory::delete_session,
             memory::save_message,
+            memory::load_session_messages,
             memory::load_recent_messages,
             memory::clear_messages,
             memory::set_memory,
