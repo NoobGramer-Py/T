@@ -2,8 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>T — Holographic Core</title>
+<title>T — ULTRON CORE HOLOGRAM</title>
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Share+Tech+Mono&display=swap');
+
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   html, body {
@@ -11,7 +13,7 @@
     background: transparent;
     overflow: hidden;
     user-select: none;
-    font-family: 'Courier New', monospace;
+    font-family: 'Share Tech Mono', monospace;
   }
 
   #drag-region {
@@ -28,99 +30,112 @@
   }
 
   #close-btn {
-    position: fixed; top: 12px; right: 14px;
-    width: 24px; height: 24px;
-    background: rgba(0,212,255,0.06);
-    border: 1px solid rgba(0,212,255,0.18);
-    border-radius: 50%;
+    position: fixed; top: 14px; right: 16px;
+    width: 26px; height: 26px;
+    background: rgba(255, 0, 51, 0.08);
+    border: 1px solid rgba(255, 0, 51, 0.25);
+    border-radius: 2px;
     cursor: pointer;
     display: flex; align-items: center; justify-content: center;
-    color: rgba(0,212,255,0.45);
-    font-size: 10px; line-height: 1;
+    color: rgba(255, 0, 51, 0.7);
+    font-size: 11px;
     z-index: 100;
     -webkit-app-region: no-drag;
     app-region: no-drag;
     opacity: 0;
-    transition: all 0.18s ease;
+    transition: all 0.2s ease;
   }
   body:hover #close-btn { opacity: 1; }
   #close-btn:hover {
-    background: rgba(255,51,0,0.14);
-    border-color: rgba(255,51,0,0.35);
-    color: #ff3300;
-    transform: scale(1.1);
+    background: rgba(255, 0, 51, 0.3);
+    border-color: #ff0033;
+    color: #ffffff;
+    box-shadow: 0 0 12px rgba(255, 0, 51, 0.6);
   }
 
   #t-label {
-    position: fixed; top: 16px; left: 18px;
-    font-size: 10px; letter-spacing: 10px;
-    color: rgba(0,212,255,0.28);
+    position: fixed; top: 18px; left: 20px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 12px; font-weight: 900; letter-spacing: 8px;
+    color: #ff0033;
     z-index: 100; pointer-events: none;
-    text-shadow: 0 0 14px rgba(0,212,255,0.5);
+    text-shadow: 0 0 14px rgba(255, 0, 51, 0.8), 0 0 30px rgba(255, 0, 51, 0.4);
+    display: flex; align-items: center; gap: 8px;
+  }
+  #t-label::after {
+    content: 'CORE AI';
+    font-size: 7px; letter-spacing: 4px; color: rgba(255, 255, 255, 0.4);
+    font-family: 'Share Tech Mono', monospace;
   }
 
   #status-row {
-    position: fixed; bottom: 22px;
+    position: fixed; bottom: 24px;
     left: 0; right: 0;
     display: flex; flex-direction: column;
-    align-items: center; gap: 10px;
+    align-items: center; gap: 8px;
     z-index: 100; pointer-events: none;
   }
 
   #status-text {
-    font-size: 9px; letter-spacing: 7px;
-    color: rgba(0,212,255,0.35);
-    text-shadow: 0 0 10px rgba(0,212,255,0.25);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 10px; font-weight: 700; letter-spacing: 8px;
+    color: #ff0033;
+    text-shadow: 0 0 14px rgba(255, 0, 51, 0.7);
     transition: color 0.4s ease, text-shadow 0.4s ease;
   }
 
   #data-row {
-    display: flex; gap: 20px; align-items: center;
+    display: flex; gap: 24px; align-items: center;
+    background: rgba(10, 8, 14, 0.65);
+    padding: 6px 18px;
+    border: 1px solid rgba(255, 0, 51, 0.15);
+    border-radius: 2px;
+    backdrop-filter: blur(8px);
   }
 
   .data-item {
     display: flex; flex-direction: column;
-    align-items: center; gap: 3px;
+    align-items: center; gap: 2px;
   }
 
   .data-value {
-    font-size: 12px; color: rgba(0,212,255,0.65);
+    font-size: 11px; color: rgba(255, 255, 255, 0.9);
     font-variant-numeric: tabular-nums;
-    letter-spacing: 1px;
+    letter-spacing: 2px;
   }
 
   .data-label {
     font-size: 6px; letter-spacing: 4px;
-    color: rgba(0,212,255,0.22);
+    color: rgba(255, 0, 51, 0.6);
   }
 
   .sep {
-    width: 2px; height: 2px; border-radius: 50%;
-    background: rgba(0,212,255,0.18);
+    width: 2px; height: 12px;
+    background: rgba(255, 0, 51, 0.2);
   }
 
   /* Corner brackets */
   .bracket {
-    position: fixed; width: 18px; height: 18px;
-    pointer-events: none; opacity: 0.2;
+    position: fixed; width: 20px; height: 20px;
+    pointer-events: none; opacity: 0.4;
   }
-  .bracket.tl { top: 8px;  left: 8px;
-    border-top: 1px solid #00d4ff; border-left: 1px solid #00d4ff; }
-  .bracket.tr { top: 8px;  right: 8px;
-    border-top: 1px solid #00d4ff; border-right: 1px solid #00d4ff; }
-  .bracket.bl { bottom: 8px; left: 8px;
-    border-bottom: 1px solid #00d4ff; border-left: 1px solid #00d4ff; }
-  .bracket.br { bottom: 8px; right: 8px;
-    border-bottom: 1px solid #00d4ff; border-right: 1px solid #00d4ff; }
+  .bracket.tl { top: 10px;  left: 10px;
+    border-top: 1px solid #ff0033; border-left: 1px solid #ff0033; }
+  .bracket.tr { top: 10px;  right: 10px;
+    border-top: 1px solid #ff0033; border-right: 1px solid #ff0033; }
+  .bracket.bl { bottom: 10px; left: 10px;
+    border-bottom: 1px solid #ff0033; border-left: 1px solid #ff0033; }
+  .bracket.br { bottom: 10px; right: 10px;
+    border-bottom: 1px solid #ff0033; border-right: 1px solid #ff0033; }
 
   #scanline {
     position: fixed; left: 0; right: 0; height: 2px;
     background: linear-gradient(to right,
-      transparent, rgba(0,212,255,0.05) 30%,
-      rgba(0,212,255,0.1) 50%,
-      rgba(0,212,255,0.05) 70%, transparent);
+      transparent, rgba(255, 0, 51, 0.1) 30%,
+      rgba(255, 0, 51, 0.4) 50%,
+      rgba(255, 0, 51, 0.1) 70%, transparent);
     pointer-events: none;
-    animation: sweep 9s linear infinite;
+    animation: sweep 8s linear infinite;
     z-index: 50;
   }
   @keyframes sweep { 0% { top: -2px; } 100% { top: 100vh; } }
@@ -138,15 +153,15 @@
 <div id="scanline"></div>
 <canvas id="c"></canvas>
 
-<div id="t-label">T</div>
+<div id="t-label">ULTRON</div>
 <div id="close-btn" onclick="closeWindow()">✕</div>
 
 <div id="status-row">
-  <div id="status-text">STANDBY</div>
+  <div id="status-text">SYSTEM IDLE</div>
   <div id="data-row">
     <div class="data-item">
       <span class="data-value" id="val-time">--:--:--</span>
-      <span class="data-label">TIME</span>
+      <span class="data-label">CHRONO</span>
     </div>
     <div class="sep"></div>
     <div class="data-item">
@@ -155,77 +170,57 @@
     </div>
     <div class="sep"></div>
     <div class="data-item">
-      <span class="data-value" id="val-status">ONLINE</span>
-      <span class="data-label">BRAIN</span>
+      <span class="data-value" id="val-status" style="color: #ff0033;">ONLINE</span>
+      <span class="data-label">STATE</span>
     </div>
   </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-// ── Close window ───────────────────────────────────────────────────────────
 async function closeWindow() {
   try {
-    const { getCurrentWindow } = await import(
-      'https://unpkg.com/@tauri-apps/api@2/window.js'
-    );
+    const { getCurrentWindow } = await import('https://unpkg.com/@tauri-apps/api@2/window.js');
     await getCurrentWindow().close();
   } catch { window.close(); }
 }
 
-// ── Mode sync ──────────────────────────────────────────────────────────────
+// ── Interaction State Config ────────────────────────────────────────────────
 let mode    = 'idle';
 let startTs = Date.now();
 const statusEl = document.getElementById('status-text');
+
+const STATE_CONFIGS = {
+  idle:          { label: 'SYSTEM IDLE',     color: '#ff0033', speed: 1.0,  pulseFreq: 1.2 },
+  listening:     { label: 'VOICE INGESTION', color: '#ffffff', speed: 2.2,  pulseFreq: 3.5 },
+  understanding: { label: 'DECODING PATTERN',color: '#ff3355', speed: 1.8,  pulseFreq: 2.5 },
+  reasoning:     { label: 'NEURAL REASONING',color: '#ff0033', speed: 2.8,  pulseFreq: 4.0 },
+  planning:      { label: 'PLANNING PATH',   color: '#d8e0e6', speed: 2.0,  pulseFreq: 2.0 },
+  executing:     { label: 'EXECUTING ACTION',color: '#ff0033', speed: 3.5,  pulseFreq: 5.0 },
+  speaking:      { label: 'AUDIO BROADCAST', color: '#ffffff', speed: 3.0,  pulseFreq: 4.5 },
+  waiting:       { label: 'AWAITING RESPONSE',color: '#800016',speed: 0.7,  pulseFreq: 0.8 },
+  error:         { label: 'CRITICAL ANOMALY',color: '#ff0000', speed: 4.0,  pulseFreq: 8.0 },
+  offline:       { label: 'CORE DISCONNECTED',color:'#555566', speed: 0.2,  pulseFreq: 0.4 },
+  updating:      { label: 'SYNCHRONIZING',   color: '#a0aab0', speed: 2.5,  pulseFreq: 3.0 },
+  learning:      { label: 'WEIGHT ADAPTATION',color: '#ffffff', speed: 2.8,  pulseFreq: 3.8 },
+};
 
 setInterval(() => {
   try {
     const m = localStorage.getItem('t_visualizer_mode') || 'idle';
     if (m !== mode) {
       mode = m;
+      const conf = STATE_CONFIGS[m] || STATE_CONFIGS.idle;
       if (statusEl) {
-        const labels = { speaking: 'RESPONDING', listening: 'LISTENING', idle: 'STANDBY' };
-        const colors = {
-          speaking:  'rgba(0,212,255,0.8)',
-          listening: 'rgba(0,255,136,0.8)',
-          idle:      'rgba(0,212,255,0.3)',
-        };
-        statusEl.textContent  = labels[m] || 'STANDBY';
-        statusEl.style.color  = colors[m] || colors.idle;
-        statusEl.style.textShadow = m !== 'idle'
-          ? `0 0 14px ${colors[m]}`
-          : '0 0 10px rgba(0,212,255,0.2)';
+        statusEl.textContent = conf.label;
+        statusEl.style.color = conf.color;
+        statusEl.style.textShadow = `0 0 16px ${conf.color}`;
       }
     }
   } catch {}
-}, 250);
+}, 200);
 
-// ── Tickers ────────────────────────────────────────────────────────────────
-function updateTickers() {
-  const now  = new Date();
-  const secs = Math.floor((Date.now() - startTs) / 1000);
-  const mins = Math.floor(secs / 60);
-  const hrs  = Math.floor(mins / 60);
-  document.getElementById('val-time').textContent    = now.toTimeString().slice(0,8);
-  document.getElementById('val-uptime').textContent  =
-    hrs > 0 ? `${hrs}h ${mins%60}m` : mins > 0 ? `${mins}m ${secs%60}s` : `${secs}s`;
-
-  // Ping WS to check brain status
-  try {
-    const ws = new WebSocket('ws://127.0.0.1:7891/ws');
-    ws.onopen  = () => {
-      document.getElementById('val-status').textContent = 'ONLINE';
-      document.getElementById('val-status').style.color = 'rgba(0,255,136,0.7)';
-      ws.close();
-    };
-    ws.onerror = () => {
-      document.getElementById('val-status').textContent = 'OFFLINE';
-      document.getElementById('val-status').style.color = 'rgba(255,51,0,0.7)';
-    };
-  } catch {}
-}
-setInterval(updateTickers, 5000);
-updateTickers();
+// ── Tickers ──────────────────────────────────────────────────────────────────
 setInterval(() => {
   const now = new Date();
   document.getElementById('val-time').textContent = now.toTimeString().slice(0,8);
@@ -236,14 +231,14 @@ setInterval(() => {
     hrs > 0 ? `${hrs}h ${mins%60}m` : mins > 0 ? `${mins}m ${secs%60}s` : `${secs}s`;
 }, 1000);
 
-// ── Three.js ───────────────────────────────────────────────────────────────
+// ── Three.js Ultron Consciousness Rendering ──────────────────────────────────
 const canvas   = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
 renderer.setClearColor(0x000000, 0);
 
 const scene  = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 200);
-camera.position.z = 7;
+const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 200);
+camera.position.z = 7.5;
 
 function resize() {
   const W = window.innerWidth, H = window.innerHeight;
@@ -255,10 +250,12 @@ function resize() {
 resize();
 window.addEventListener('resize', resize);
 
-const C_BRIGHT = 0xa0f4ff;
-const C_CYAN   = 0x00d4ff;
-const C_DEEP   = 0x0088cc;
-const C_MID    = 0x004488;
+// Ultron Color Tokens in WebGL
+const C_RED    = 0xff0033;
+const C_CRIM   = 0x800016;
+const C_WHITE  = 0xffffff;
+const C_SILVER = 0xa0aab0;
+const C_DARK   = 0x2a0008;
 
 const M = (color, opacity, side = THREE.FrontSide) =>
   new THREE.MeshBasicMaterial({
@@ -266,109 +263,68 @@ const M = (color, opacity, side = THREE.FrontSide) =>
     blending: THREE.AdditiveBlending, depthWrite: false,
   });
 
-// Core
-const innerGlow = new THREE.Mesh(new THREE.SphereGeometry(0.28, 32, 32), M(C_BRIGHT, 0.6));
-scene.add(innerGlow);
+// 1. Inner Core Nucleus (Glowing sphere + Geodesic Inner Cage)
+const innerNucleus = new THREE.Mesh(new THREE.SphereGeometry(0.35, 32, 32), M(C_WHITE, 0.75));
+scene.add(innerNucleus);
 
-scene.add(new THREE.Mesh(
-  new THREE.SphereGeometry(0.55, 32, 32),
-  M(C_CYAN, 0.07, THREE.BackSide)
-));
+const outerNucleusGlow = new THREE.Mesh(new THREE.SphereGeometry(0.7, 32, 32), M(C_RED, 0.15, THREE.BackSide));
+scene.add(outerNucleusGlow);
 
-const icoMesh = new THREE.Mesh(
-  new THREE.IcosahedronGeometry(0.6, 2),
-  M(C_BRIGHT, 0.5)
-);
-icoMesh.material.wireframe = true;
-scene.add(icoMesh);
+const geoMesh = new THREE.Mesh(new THREE.IcosahedronGeometry(0.75, 2), M(C_RED, 0.6));
+geoMesh.material.wireframe = true;
+scene.add(geoMesh);
 
-// Halos
-[0.85, 1.1, 1.4, 1.75].forEach((r, i) =>
-  scene.add(new THREE.Mesh(
-    new THREE.SphereGeometry(r, 20, 20),
-    M(C_CYAN, 0.04 - i * 0.007, THREE.BackSide)
-  ))
-);
+const outerIcoMesh = new THREE.Mesh(new THREE.IcosahedronGeometry(1.05, 1), M(C_SILVER, 0.3));
+outerIcoMesh.material.wireframe = true;
+scene.add(outerIcoMesh);
 
-// Arc discs
-const arcDisc = new THREE.Mesh(new THREE.TorusGeometry(0.72, 0.018, 8, 80), M(C_CYAN,  0.85));
-const disc2   = new THREE.Mesh(new THREE.TorusGeometry(0.95, 0.010, 8, 80), M(C_DEEP,  0.5));
-const disc3   = new THREE.Mesh(new THREE.TorusGeometry(1.20, 0.006, 8, 80), M(C_MID,   0.35));
-scene.add(arcDisc, disc2, disc3);
-
-// Orbit rings
+// 2. Orbital Laser Rings & Wireframe Discs
 const RINGS = [
-  { r: 1.10, tube: 0.008, col: C_BRIGHT, spd:  0.55, tilt: [0,            0, 0] },
-  { r: 1.50, tube: 0.005, col: C_CYAN,   spd: -0.38, tilt: [Math.PI/5,    0, 0] },
-  { r: 1.90, tube: 0.007, col: C_DEEP,   spd:  0.28, tilt: [Math.PI/3,    0, 0] },
-  { r: 2.35, tube: 0.004, col: C_CYAN,   spd: -0.19, tilt: [Math.PI/2,    0, 0] },
-  { r: 2.80, tube: 0.006, col: C_MID,    spd:  0.13, tilt: [Math.PI*0.62, 0, 0] },
-  { r: 3.25, tube: 0.003, col: C_DEEP,   spd: -0.09, tilt: [Math.PI*0.78, 0, 0] },
+  { r: 1.30, tube: 0.012, col: C_WHITE, spd:  0.8, tilt: [0, 0, 0] },
+  { r: 1.65, tube: 0.008, col: C_RED,   spd: -0.5, tilt: [Math.PI/4, 0, 0] },
+  { r: 2.05, tube: 0.006, col: C_CRIM,  spd:  0.4, tilt: [Math.PI/3, Math.PI/6, 0] },
+  { r: 2.50, tube: 0.009, col: C_RED,   spd: -0.3, tilt: [Math.PI*0.6, 0, 0] },
+  { r: 2.95, tube: 0.005, col: C_SILVER,spd:  0.2, tilt: [Math.PI*0.8, Math.PI/4, 0] },
 ];
 
-const rings = RINGS.map(({ r, tube, col, spd, tilt }) => {
+const ringGroups = RINGS.map(({ r, tube, col, spd, tilt }) => {
   const pivot = new THREE.Group();
   pivot.rotation.set(...tilt);
-  pivot.add(new THREE.Mesh(new THREE.TorusGeometry(r, tube,     8, 120), M(col, 0.9)));
-  pivot.add(new THREE.Mesh(new THREE.TorusGeometry(r, tube*14,  8, 120), M(col, 0.05)));
+  pivot.add(new THREE.Mesh(new THREE.TorusGeometry(r, tube, 12, 120), M(col, 0.85)));
+  pivot.add(new THREE.Mesh(new THREE.TorusGeometry(r, tube * 8, 8, 120), M(col, 0.04)));
   scene.add(pivot);
   return { pivot, spd };
 });
 
-// Particles
-const PC    = 900;
+// 3. Orbital Scanning Particle Cloud (1200+ particles)
+const PC    = 1200;
 const pArr  = new Float32Array(PC * 3);
 const pData = Array.from({ length: PC }, () => ({
-  orb:   1.0 + Math.random() * 2.8,
+  orb:   1.1 + Math.random() * 2.8,
   ang:   Math.random() * Math.PI * 2,
-  spd:   (0.07 + Math.random() * 0.42) * (Math.random() > 0.5 ? 1 : -1),
+  spd:   (0.1 + Math.random() * 0.5) * (Math.random() > 0.5 ? 1 : -1),
   phase: Math.random() * Math.PI * 2,
-  amp:   0.08 + Math.random() * 0.28,
+  amp:   0.1 + Math.random() * 0.35,
 }));
 const pGeo  = new THREE.BufferGeometry();
 pGeo.setAttribute('position', new THREE.BufferAttribute(pArr, 3));
 const pMesh = new THREE.Points(pGeo, new THREE.PointsMaterial({
-  color: C_CYAN, size: 0.020, transparent: true, opacity: 0.65,
+  color: C_RED, size: 0.025, transparent: true, opacity: 0.75,
   blending: THREE.AdditiveBlending, depthWrite: false,
 }));
 scene.add(pMesh);
 
-// Outer data rings
-const dataRings = [];
-for (let i = 0; i < 3; i++) {
-  const r   = 3.7 + i * 0.45;
-  const pts = [];
-  const n   = 80;
-  const skip = Math.floor(n / (6 + i * 3));
-  for (let j = 0; j < n; j++) {
-    if (j % skip === 0) continue;
-    const a = (j / n) * Math.PI * 2;
-    pts.push(Math.cos(a) * r, Math.sin(a) * r, 0);
-  }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pts), 3));
-  const m = new THREE.Points(geo, new THREE.PointsMaterial({
-    color: C_DEEP, size: 0.016, transparent: true, opacity: 0.3,
-    blending: THREE.AdditiveBlending, depthWrite: false,
-  }));
-  m.rotation.x = (Math.random() - 0.5) * 0.7;
-  m.rotation.y = Math.random() * Math.PI;
-  scene.add(m);
-  dataRings.push({ mesh: m, spd: (0.03 + Math.random() * 0.05) * (i % 2 === 0 ? 1 : -1) });
-}
-
-// Pulse waves
+// 4. Volumetric Energy Pulse Rings
 const pulses = [];
-let pulseAccum = 0;
+let pulseTimer = 0;
 function spawnPulse() {
-  const m = new THREE.Mesh(new THREE.TorusGeometry(0.65, 0.010, 8, 64), M(C_CYAN, 0.6));
+  const m = new THREE.Mesh(new THREE.TorusGeometry(0.75, 0.012, 8, 64), M(C_RED, 0.8));
   scene.add(m);
-  pulses.push({ mesh: m, scale: 1.0, opacity: 0.6 });
+  pulses.push({ mesh: m, scale: 1.0, opacity: 0.8 });
 }
 
-// ── Animate ────────────────────────────────────────────────────────────────
-let last = 0;
-let rotX = 0, rotY = 0;
+// ── Animation Loop ───────────────────────────────────────────────────────────
+let last = 0, rotX = 0, rotY = 0;
 
 function tick(ts) {
   requestAnimationFrame(tick);
@@ -376,53 +332,47 @@ function tick(ts) {
   const dt = Math.min(t - last, 0.05);
   last = t;
 
-  const mult    = mode === 'speaking' ? 2.8 : mode === 'listening' ? 1.7 : 1.0;
-  const breathe = 1 + Math.sin(t * 1.3) * 0.04 * mult;
+  const conf  = STATE_CONFIGS[mode] || STATE_CONFIGS.idle;
+  const speed = conf.speed;
 
-  rotX += dt * 0.17 * mult;
-  rotY += dt * 0.33 * mult;
-  icoMesh.rotation.set(rotX, rotY, 0);
-  icoMesh.scale.setScalar(breathe);
+  // Rotations
+  rotX += dt * 0.2 * speed;
+  rotY += dt * 0.35 * speed;
 
-  innerGlow.scale.setScalar(0.88 + Math.sin(t * 2.8) * 0.12 * mult);
-  innerGlow.material.opacity = Math.min(0.5 + mult * 0.12, 0.88);
+  geoMesh.rotation.set(rotX, rotY, 0);
+  outerIcoMesh.rotation.set(-rotX * 0.6, -rotY * 0.4, rotX * 0.2);
 
-  arcDisc.rotation.z += dt * 0.68 * mult;
-  arcDisc.scale.setScalar(breathe);
-  disc2.rotation.z   -= dt * 0.43 * mult;
-  disc3.rotation.z   += dt * 0.22 * mult;
+  // Core Pulsing
+  const breathe = 1 + Math.sin(t * conf.pulseFreq) * 0.06 * speed;
+  geoMesh.scale.setScalar(breathe);
+  innerNucleus.scale.setScalar(0.9 + Math.sin(t * conf.pulseFreq * 2) * 0.12);
 
-  rings.forEach(({ pivot, spd }, i) => {
-    pivot.rotation.z += spd * dt * mult;
-    if (mode === 'speaking') {
-      pivot.scale.setScalar(1 + Math.sin(t * 5.5 + i) * 0.07);
-    } else {
-      pivot.scale.setScalar(breathe);
-    }
+  // Rings
+  ringGroups.forEach(({ pivot, spd }, i) => {
+    pivot.rotation.z += spd * dt * speed;
+    pivot.scale.setScalar(1 + Math.sin(t * 3 + i) * 0.03 * speed);
   });
 
-  dataRings.forEach(({ mesh, spd }) => {
-    mesh.rotation.z += spd * dt;
-    mesh.rotation.x += spd * 0.25 * dt;
-  });
-
+  // Particles Orbiting
   for (let i = 0; i < PC; i++) {
     const p = pData[i];
-    p.ang += p.spd * dt * mult;
+    p.ang += p.spd * dt * speed;
     pArr[i*3]   = Math.cos(p.ang) * p.orb;
-    pArr[i*3+1] = Math.sin(p.ang * 0.5 + p.phase) * p.orb * p.amp;
+    pArr[i*3+1] = Math.sin(p.ang * 0.6 + p.phase) * p.orb * p.amp;
     pArr[i*3+2] = Math.sin(p.ang) * p.orb;
   }
   pGeo.attributes.position.needsUpdate = true;
-  pMesh.material.opacity = 0.5 + Math.sin(t * 1.8) * 0.12;
 
-  const interval = mode === 'speaking' ? 0.42 : mode === 'listening' ? 0.8 : 1.9;
-  pulseAccum += dt;
-  if (pulseAccum >= interval) { pulseAccum = 0; spawnPulse(); }
+  // Energy Pulses
+  pulseTimer += dt;
+  if (pulseTimer >= (2.0 / speed)) {
+    pulseTimer = 0;
+    spawnPulse();
+  }
   for (let i = pulses.length - 1; i >= 0; i--) {
     const p = pulses[i];
-    p.scale   += dt * 2.0 * mult;
-    p.opacity -= dt * 0.5 * mult;
+    p.scale   += dt * 2.2 * speed;
+    p.opacity -= dt * 0.6 * speed;
     p.mesh.scale.setScalar(p.scale);
     p.mesh.material.opacity = Math.max(0, p.opacity);
     if (p.opacity <= 0) {
@@ -431,6 +381,15 @@ function tick(ts) {
       p.mesh.material.dispose();
       pulses.splice(i, 1);
     }
+  }
+
+  // Error glitch mode jitter
+  if (mode === 'error') {
+    camera.position.x = (Math.random() - 0.5) * 0.15;
+    camera.position.y = (Math.random() - 0.5) * 0.15;
+  } else {
+    camera.position.x = 0;
+    camera.position.y = 0;
   }
 
   renderer.render(scene, camera);

@@ -3,27 +3,26 @@ import { useTStore } from "../../store";
 import { useChat } from "../../hooks/useChat";
 import { useVoiceTranscript } from "../../hooks/useVoice";
 import { useBrainVoice, useAgent } from "../../hooks/useBridge";
+import { UltronCoreCanvas } from "../hud/UltronCoreCanvas";
 
-// ── Typing indicator ───────────────────────────────────────────────────────────
 function TypingIndicator() {
   return (
-    <div style={{ display: "flex", gap: 5, alignItems: "center", padding: "8px 4px" }}>
+    <div style={{ display: "flex", gap: 6, alignItems: "center", padding: "10px 4px" }}>
       {[0, 1, 2].map((i) => (
         <div key={i} style={{
           width: 4, height: 4, borderRadius: "50%",
-          background: "#00d4ff",
-          animation: `pulse-dot 1.2s ease-in-out ${i * 0.2}s infinite`,
-          boxShadow: "0 0 6px #00d4ff",
+          background: "#ff0033",
+          animation: `energy-pulse 1s ease-in-out ${i * 0.2}s infinite`,
+          boxShadow: "0 0 8px #ff0033",
         }} />
       ))}
-      <span style={{ fontSize: 8, letterSpacing: 3, color: "rgba(0,212,255,0.35)", marginLeft: 4 }}>
-        PROCESSING
+      <span style={{ fontSize: 9, letterSpacing: 3, color: "rgba(255,0,51,0.7)", fontFamily: "var(--font-mono)", marginLeft: 6 }}>
+        ULTRON NEURAL SYNTHESIS IN PROGRESS...
       </span>
     </div>
   );
 }
 
-// ── Message bubble ─────────────────────────────────────────────────────────────
 function MessageBubble({ role, content, timestamp }: {
   role:      "user" | "assistant";
   content:   string;
@@ -35,52 +34,44 @@ function MessageBubble({ role, content, timestamp }: {
   });
 
   return (
-    <div className="fade-in-up" style={{
+    <div className="fade-in-scale" style={{
       display: "flex",
       justifyContent: isUser ? "flex-end" : "flex-start",
-      marginBottom: 14,
+      marginBottom: 16,
     }}>
-      {/* T avatar line */}
       {!isUser && (
         <div style={{
-          width: 2, flexShrink: 0, marginRight: 10, marginTop: 4, marginBottom: 4,
-          background: "linear-gradient(to bottom, #00d4ff, rgba(0,212,255,0.1))",
-          borderRadius: 1, boxShadow: "0 0 6px rgba(0,212,255,0.4)",
+          width: 3, flexShrink: 0, marginRight: 12, marginTop: 4, marginBottom: 4,
+          background: "linear-gradient(to bottom, #ff0033, #800016, transparent)",
+          borderRadius: 1, boxShadow: "0 0 8px rgba(255,0,51,0.6)",
         }} />
       )}
 
-      <div style={{
-        maxWidth: "76%",
+      <div className="ultron-panel ultron-corner-brackets" style={{
+        maxWidth: "80%",
         background: isUser
-          ? "linear-gradient(135deg, rgba(0,212,255,0.07), rgba(0,136,204,0.04))"
-          : "rgba(0,212,255,0.025)",
-        border: `1px solid ${isUser ? "rgba(0,212,255,0.22)" : "rgba(0,212,255,0.08)"}`,
-        borderRadius: isUser ? "6px 6px 2px 6px" : "2px 6px 6px 6px",
-        padding: "10px 14px",
-        position: "relative",
-        boxShadow: isUser ? "0 0 20px rgba(0,212,255,0.04)" : "none",
+          ? "linear-gradient(135deg, rgba(255,0,51,0.14), rgba(128,0,22,0.06))"
+          : "rgba(10,8,15,0.75)",
+        borderColor: isUser ? "rgba(255,0,51,0.4)" : "rgba(255,0,51,0.18)",
+        borderRadius: 2,
+        padding: "12px 16px",
+        boxShadow: isUser ? "0 0 20px rgba(255,0,51,0.1)" : "none",
       }}>
-        {/* Corner marks */}
         <div style={{
-          position: "absolute", top: 2, [isUser ? "right" : "left"]: 2,
-          width: 5, height: 5,
-          borderTop: "1px solid rgba(0,212,255,0.4)",
-          [isUser ? "borderRight" : "borderLeft"]: "1px solid rgba(0,212,255,0.4)",
-        }} />
-
-        <div style={{
-          fontSize: 7, letterSpacing: 4, marginBottom: 6,
-          color: isUser ? "rgba(0,212,255,0.45)" : "rgba(0,212,255,0.30)",
-          display: "flex", gap: 10, alignItems: "center",
+          fontSize: 8, letterSpacing: 3, marginBottom: 8,
+          color: isUser ? "#ff3355" : "#a0aab0",
+          fontFamily: "var(--font-mono)",
+          display: "flex", gap: 12, alignItems: "center", justifyContent: "space-between",
         }}>
-          <span>{isUser ? "USER" : "T · A.I."}</span>
-          <span style={{ opacity: 0.6, fontVariantNumeric: "tabular-nums" }}>{time}</span>
+          <span style={{ fontWeight: 700 }}>{isUser ? "OPERATOR COMMAND" : "ULTRON SUPERINTELLIGENCE"}</span>
+          <span style={{ opacity: 0.5, fontVariantNumeric: "tabular-nums" }}>{time}</span>
         </div>
 
         <div style={{
-          fontSize: 12, lineHeight: 1.68,
-          color: isUser ? "rgba(160,244,255,0.90)" : "rgba(0,212,255,0.85)",
+          fontSize: 13, lineHeight: 1.65,
+          color: isUser ? "#ffffff" : "rgba(255,255,255,0.92)",
           whiteSpace: "pre-wrap", wordBreak: "break-word",
+          fontFamily: "var(--font-mono)",
         }}>
           {content}
         </div>
@@ -89,12 +80,11 @@ function MessageBubble({ role, content, timestamp }: {
   );
 }
 
-// ── Main panel ─────────────────────────────────────────────────────────────────
 export function ChatPanel() {
   const {
     messages, isTyping, voiceEnabled, voiceListening,
     sessions, activeSessionId, setActiveSessionId, setMessages,
-    addSession, removeSession,
+    addSession, removeSession, setVisualizerMode,
   } = useTStore();
   const { send }   = useChat();
   const [input, setInput] = useState("");
@@ -104,14 +94,17 @@ export function ChatPanel() {
   const { dispatch: agentDispatch } = useAgent();
   const { addMessage } = useTStore();
 
-  const onTranscript = useCallback((text: string) => { send(text); }, [send]);
+  const onTranscript = useCallback((text: string) => {
+    setVisualizerMode("listening");
+    send(text);
+  }, [send, setVisualizerMode]);
+
   useVoiceTranscript(onTranscript);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
-  // Handle switching chat sessions
   const handleSelectSession = async (id: string) => {
     if (id === activeSessionId) return;
     setActiveSessionId(id);
@@ -124,29 +117,25 @@ export function ChatPanel() {
     }
   };
 
-  // Handle creating a new chat session
   const handleNewChat = async () => {
     const newId = crypto.randomUUID();
-    const title = `Chat ${new Date().toLocaleTimeString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}`;
+    const title = `COMMAND LOG ${new Date().toLocaleTimeString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}`;
     const created_at = Date.now();
     const newSession = { id: newId, title, created_at };
 
     addSession(newSession);
     setActiveSessionId(newId);
     setMessages([
-      { id: "boot", role: "assistant", content: "NEW CHAT INITIALIZED. How can I help you?", timestamp: created_at }
+      { id: "boot", role: "assistant", content: "ULTRON CORE ONLINE. COMMAND INTERFACE READY FOR DIRECTIVES.", timestamp: created_at }
     ]);
 
     try {
       const { saveSession, saveMessage } = await import("../../lib/tauri");
       await saveSession(newId, title, created_at);
-      await saveMessage(newId, "assistant", "NEW CHAT INITIALIZED. How can I help you?", created_at);
-    } catch {
-      // Browser fallback
-    }
+      await saveMessage(newId, "assistant", "ULTRON CORE ONLINE. COMMAND INTERFACE READY FOR DIRECTIVES.", created_at);
+    } catch {}
   };
 
-  // Handle deleting a chat session
   const handleDeleteSession = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     removeSession(id);
@@ -165,25 +154,39 @@ export function ChatPanel() {
     }
   };
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
+    if (e.target.value.trim().length > 0) {
+      setVisualizerMode("understanding");
+    } else {
+      setVisualizerMode("idle");
+    }
+  };
+
   const handleSend = () => {
     if (!input.trim() || isTyping) return;
     const trimmed = input.trim();
     setInput("");
     inputRef.current?.focus();
+    setVisualizerMode("reasoning");
 
     if (trimmed.startsWith("/run ")) {
       const task = trimmed.slice(5).trim();
       if (!task) return;
+      setVisualizerMode("executing");
       addMessage("user", trimmed);
-      addMessage("assistant", `[AGENT] Task initiated: ${task}`);
+      addMessage("assistant", `[ULTRON AGENT] CINEMATIC TASK INITIATED: ${task}`);
       agentDispatch(task, (e) => {
         const label =
-          e.type === "agent_tool_start" ? `\n[→] Running ${e.tool}...` :
-          e.type === "agent_tool_done"  ? `\n[✓] ${e.tool}:\n${e.result ?? ""}` :
-          e.type === "agent_confirm"    ? `\n[!] ${e.message ?? ""}` :
-          e.type === "agent_done"       ? `\n\n${e.answer ?? ""}` :
-          e.type === "agent_error"      ? `\n[ERROR] ${e.error ?? ""}` : null;
+          e.type === "agent_tool_start" ? `\n[→ DISPATCHING TOOL] ${e.tool}...` :
+          e.type === "agent_tool_done"  ? `\n[✓ EXECUTED] ${e.tool}:\n${e.result ?? ""}` :
+          e.type === "agent_confirm"    ? `\n[! CONFIRMATION REQUIRED] ${e.message ?? ""}` :
+          e.type === "agent_done"       ? `\n\n[TASK COMPLETED]\n${e.answer ?? ""}` :
+          e.type === "agent_error"      ? `\n[CRITICAL ERROR] ${e.error ?? ""}` : null;
         if (!label) return;
+        if (e.type === "agent_done") setVisualizerMode("idle");
+        if (e.type === "agent_error") setVisualizerMode("error");
+
         useTStore.setState((s) => {
           const msgs = [...s.messages];
           for (let i = msgs.length - 1; i >= 0; i--) {
@@ -205,87 +208,60 @@ export function ChatPanel() {
   };
 
   return (
-    <div style={{ display: "flex", height: "100%", gap: 0 }}>
+    <div style={{ display: "flex", height: "100%", width: "100%", backgroundColor: "var(--u-void)" }}>
 
-      {/* ── Sessions Sidebar ────────────────────────────────────────────────── */}
+      {/* Sessions Sidebar */}
       <div style={{
-        width: 230,
-        background: "rgba(0,8,20,0.85)",
-        borderRight: "1px solid rgba(0,212,255,0.08)",
+        width: 250,
+        background: "rgba(10,8,15,0.9)",
+        borderRight: "1px solid rgba(255,0,51,0.18)",
         display: "flex", flexDirection: "column",
         overflow: "hidden",
       }}>
-        {/* New Chat Button */}
-        <div style={{ padding: "12px 14px", borderBottom: "1px solid rgba(0,212,255,0.08)" }}>
+        <div style={{ padding: "14px", borderBottom: "1px solid rgba(255,0,51,0.15)" }}>
           <button
             onClick={handleNewChat}
-            style={{
-              width: "100%", padding: "8px 12px",
-              background: "linear-gradient(135deg, rgba(0,212,255,0.12), rgba(0,136,204,0.06))",
-              border: "1px solid rgba(0,212,255,0.35)",
-              borderRadius: 4, cursor: "pointer",
-              color: "#00d4ff", fontSize: 10, letterSpacing: 2,
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-              boxShadow: "0 0 12px rgba(0,212,255,0.08)",
-              fontFamily: "'Courier New', Courier, monospace",
-              fontWeight: "bold",
-            }}
+            className="ultron-btn ultron-btn-active"
+            style={{ width: "100%", justifyContent: "center" }}
           >
-            <span style={{ fontSize: 14 }}>+</span> NEW CHAT
+            + NEW COMMAND LOG
           </button>
         </div>
 
-        {/* Sessions List */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "10px 8px", display: "flex", flexDirection: "column", gap: 4 }}>
-          <div style={{ fontSize: 7, letterSpacing: 3, color: "rgba(0,212,255,0.3)", padding: "4px 8px", marginBottom: 2 }}>
-            SAVED CHATS
+        <div style={{ flex: 1, overflowY: "auto", padding: "10px 10px", display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ fontSize: 8, letterSpacing: 3, color: "#ff0033", padding: "4px 8px", fontFamily: "var(--font-header)", fontWeight: 700 }}>
+            COMMAND LOG ARCHIVE
           </div>
-          {sessions.length === 0 && (
-            <div style={{ fontSize: 9, color: "rgba(0,212,255,0.25)", padding: 8, fontStyle: "italic" }}>
-              No previous chats
-            </div>
-          )}
           {sessions.map((s) => {
             const active = s.id === activeSessionId;
-            const dateStr = new Date(s.created_at).toLocaleString("en-US", {
-              month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"
-            });
             return (
               <div
                 key={s.id}
                 onClick={() => handleSelectSession(s.id)}
+                className="ultron-panel ultron-corner-brackets"
                 style={{
-                  padding: "8px 10px",
-                  borderRadius: 4,
+                  padding: "10px 12px",
+                  borderRadius: 2,
                   cursor: "pointer",
-                  background: active ? "rgba(0,212,255,0.12)" : "rgba(0,212,255,0.02)",
-                  border: `1px solid ${active ? "rgba(0,212,255,0.3)" : "rgba(0,212,255,0.05)"}`,
+                  background: active ? "rgba(255,0,51,0.15)" : "rgba(255,0,51,0.02)",
+                  borderColor: active ? "#ff0033" : "rgba(255,0,51,0.1)",
                   display: "flex", alignItems: "center", justifyContent: "space-between",
                   transition: "all 0.15s ease",
                 }}
               >
-                <div style={{ display: "flex", flexDirection: "column", gap: 3, overflow: "hidden" }}>
-                  <span style={{
-                    fontSize: 10, color: active ? "#00d4ff" : "rgba(0,212,255,0.7)",
-                    whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-                  }}>
-                    {s.title}
-                  </span>
-                  <span style={{ fontSize: 7, color: "rgba(0,212,255,0.35)", fontVariantNumeric: "tabular-nums" }}>
-                    {dateStr}
-                  </span>
-                </div>
+                <span style={{
+                  fontSize: 11, color: active ? "#ffffff" : "rgba(160,170,176,0.7)",
+                  fontFamily: "var(--font-mono)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                }}>
+                  {s.title}
+                </span>
                 {sessions.length > 1 && (
                   <button
                     onClick={(e) => handleDeleteSession(e, s.id)}
-                    title="Delete Chat"
                     style={{
                       background: "transparent", border: "none",
-                      color: "rgba(0,212,255,0.3)", cursor: "pointer",
-                      fontSize: 11, padding: "2px 4px",
+                      color: "rgba(255,0,51,0.4)", cursor: "pointer", fontSize: 10,
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.color = "#ff4444")}
-                    onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(0,212,255,0.3)")}
                   >
                     ✕
                   </button>
@@ -296,95 +272,69 @@ export function ChatPanel() {
         </div>
       </div>
 
-      {/* ── Chat column — main area ──────────────────────────────────────── */}
+      {/* Main Command Console & Hologram Hero Header */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
-        {/* Header strip */}
+        {/* 3D Hologram Avatar Hero Display */}
         <div style={{
-          padding: "8px 20px",
-          borderBottom: "1px solid rgba(0,212,255,0.06)",
-          display: "flex", alignItems: "center", gap: 12,
-          background: "rgba(0,212,255,0.012)",
+          height: 180,
+          borderBottom: "1px solid rgba(255,0,51,0.15)",
+          background: "radial-gradient(ellipse at 50% 60%, rgba(255,0,51,0.08) 0%, rgba(5,5,8,0.95) 75%)",
+          position: "relative",
+          display: "flex", alignItems: "center", justifyContent: "center",
         }}>
-          <div style={{ height: 1, flex: 1, background: "linear-gradient(to right, rgba(0,212,255,0.12), transparent)" }} />
-          <span style={{ fontSize: 7, letterSpacing: 5, color: "rgba(0,212,255,0.25)" }}>
-            SESSION: {sessions.find(s => s.id === activeSessionId)?.title || "ACTIVE"}
-          </span>
-          <div style={{ height: 1, flex: 1, background: "linear-gradient(to left, rgba(0,212,255,0.12), transparent)" }} />
+          <UltronCoreCanvas height={175} />
+          <div style={{
+            position: "absolute", bottom: 8, left: 20,
+            fontSize: 8, letterSpacing: 4, color: "rgba(255,0,51,0.6)", fontFamily: "var(--font-mono)",
+          }}>
+            SYSTEM: RECEPTIVE // ULTRON CONSCIOUSNESS ACTIVE
+          </div>
         </div>
 
-        {/* Messages */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "18px 20px 8px" }}>
-          {messages.length === 0 && (
-            <div style={{
-              display: "flex", flexDirection: "column", alignItems: "center",
-              justifyContent: "center", height: "60%", gap: 12, opacity: 0.4,
-            }}>
-              <div style={{ fontSize: 24, color: "#00d4ff", textShadow: "0 0 20px #00d4ff" }}>◎</div>
-              <div style={{ fontSize: 8, letterSpacing: 5, color: "rgba(0,212,255,0.5)" }}>AWAITING INPUT</div>
-            </div>
-          )}
+        {/* Command Stream Log */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "20px 28px 10px" }}>
           {messages.map((m) => (
             <MessageBubble key={m.id} role={m.role} content={m.content} timestamp={m.timestamp} />
           ))}
           {isTyping && (
-            <div style={{ paddingLeft: 12 }}>
+            <div style={{ paddingLeft: 8 }}>
               <TypingIndicator />
             </div>
           )}
           <div ref={bottomRef} />
         </div>
 
-        {/* Input row */}
+        {/* Command Input Area */}
         <div style={{
-          padding: "10px 20px 14px",
-          borderTop: "1px solid rgba(0,212,255,0.07)",
-          background: "rgba(0,6,18,0.7)",
+          padding: "12px 24px 18px",
+          borderTop: "1px solid rgba(255,0,51,0.18)",
+          background: "rgba(10,8,15,0.85)",
         }}>
-          {/* Input frame */}
-          <div style={{
-            display: "flex", gap: 8, alignItems: "flex-end",
-            padding: "6px 10px",
-            border: "1px solid rgba(0,212,255,0.12)",
-            borderRadius: 4,
-            background: "rgba(0,212,255,0.02)",
-            position: "relative",
+          <div className="ultron-panel ultron-corner-brackets" style={{
+            display: "flex", gap: 10, alignItems: "center",
+            padding: "8px 14px", borderRadius: 2,
+            borderColor: "rgba(255,0,51,0.3)",
           }}>
-            {/* Corner marks on input box */}
-            {["topLeft","topRight","bottomLeft","bottomRight"].map(c => (
-              <div key={c} style={{
-                position: "absolute",
-                [c.includes("top") ? "top" : "bottom"]: -1,
-                [c.includes("Left") ? "left" : "right"]: -1,
-                width: 6, height: 6,
-                borderTop:    c.includes("top")    ? "1px solid rgba(0,212,255,0.35)" : "none",
-                borderBottom: c.includes("bottom") ? "1px solid rgba(0,212,255,0.35)" : "none",
-                borderLeft:   c.includes("Left")   ? "1px solid rgba(0,212,255,0.35)" : "none",
-                borderRight:  c.includes("Right")  ? "1px solid rgba(0,212,255,0.35)" : "none",
-              }} />
-            ))}
-
             <div style={{
-              fontSize: 14, color: "#00d4ff", paddingBottom: 6,
-              textShadow: "0 0 8px #00d4ff", flexShrink: 0,
-            }}>›</div>
+              fontSize: 16, color: "#ff0033", fontWeight: "bold",
+              textShadow: "0 0 10px #ff0033", flexShrink: 0,
+            }}>
+              ›
+            </div>
 
             <textarea
               ref={inputRef}
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={handleInputChange}
               onKeyDown={handleKey}
-              placeholder={voiceListening ? "Listening..." : "Enter command or query..."}
+              placeholder={voiceListening ? "Ingesting operator speech..." : "Issue command or query (/run <task> for autonomous execution)..."}
               rows={1}
               style={{
                 flex: 1, resize: "none", overflow: "hidden",
-                background: "transparent",
-                border: "none", outline: "none",
-                padding: "6px 0",
-                color: "rgba(160,244,255,0.90)",
-                fontSize: 12, lineHeight: 1.5,
-                fontFamily: "'Courier New', Courier, monospace",
-                caretColor: "#00d4ff",
+                background: "transparent", border: "none", outline: "none",
+                color: "#ffffff", fontSize: 13, lineHeight: 1.5,
+                fontFamily: "var(--font-mono)", caretColor: "#ff0033",
               }}
               onInput={(e) => {
                 const el = e.currentTarget;
@@ -393,53 +343,39 @@ export function ChatPanel() {
               }}
             />
 
-            {/* Send */}
+            {/* Execute Command Button */}
             <button
               onClick={handleSend}
               disabled={isTyping || !input.trim()}
-              style={{
-                width: 32, height: 32, flexShrink: 0,
-                background: isTyping || !input.trim() ? "transparent" : "rgba(0,212,255,0.08)",
-                border: `1px solid ${isTyping || !input.trim() ? "rgba(0,212,255,0.08)" : "rgba(0,212,255,0.35)"}`,
-                borderRadius: 3, cursor: isTyping ? "not-allowed" : "pointer",
-                color: isTyping || !input.trim() ? "rgba(0,212,255,0.18)" : "#00d4ff",
-                fontSize: 12, transition: "all 0.18s ease",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                boxShadow: !isTyping && input.trim() ? "0 0 10px rgba(0,212,255,0.12)" : "none",
-              }}
+              className="ultron-btn ultron-btn-active"
+              style={{ padding: "6px 16px" }}
             >
-              ▶
+              EXECUTE ▶
             </button>
 
-            {/* PTT mic */}
+            {/* Voice PTT Button */}
             {voiceEnabled && (
               <button
-                onMouseDown={startPTT} onMouseUp={stopPTT}
-                onTouchStart={startPTT} onTouchEnd={stopPTT}
-                disabled={isTyping}
+                onMouseDown={() => { setVisualizerMode("listening"); startPTT(); }}
+                onMouseUp={() => { stopPTT(); }}
+                className="ultron-btn"
                 style={{
-                  width: 32, height: 32, flexShrink: 0,
-                  background: voiceListening ? "rgba(0,212,255,0.15)" : "rgba(0,212,255,0.04)",
-                  border: `1px solid ${voiceListening ? "#00d4ff" : "rgba(0,212,255,0.15)"}`,
-                  borderRadius: 3, cursor: isTyping ? "not-allowed" : "pointer",
-                  color: voiceListening ? "#00d4ff" : "rgba(0,212,255,0.35)",
-                  fontSize: 13, transition: "all 0.15s ease",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  boxShadow: voiceListening ? "0 0 12px rgba(0,212,255,0.25)" : "none",
+                  background: voiceListening ? "#ff0033" : "rgba(255,0,51,0.06)",
+                  borderColor: voiceListening ? "#ffffff" : "rgba(255,0,51,0.3)",
                 }}
               >
                 🎙
               </button>
             )}
           </div>
-
           <div style={{
-            marginTop: 5, paddingLeft: 4,
-            fontSize: 7, color: "rgba(0,212,255,0.18)", letterSpacing: 2,
+            marginTop: 6, paddingLeft: 4,
+            fontSize: 8, color: "rgba(160,170,176,0.4)", letterSpacing: 2, fontFamily: "var(--font-mono)",
           }}>
-            ENTER TO SEND · SHIFT+ENTER NEWLINE{voiceEnabled ? ' · SAY "HEY T" TO SPEAK' : ""}
+            PRESS ENTER TO EXECUTE DIRECTIVE · PREFACE WITH /run FOR AGENT DELEGATION
           </div>
         </div>
+
       </div>
     </div>
   );

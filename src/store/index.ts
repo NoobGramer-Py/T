@@ -2,9 +2,37 @@ import { create } from "zustand";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type VisualizerMode = "idle" | "listening" | "speaking";
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export type VisualizerMode =
+  | "idle"
+  | "listening"
+  | "understanding"
+  | "reasoning"
+  | "planning"
+  | "executing"
+  | "speaking"
+  | "waiting"
+  | "error"
+  | "offline"
+  | "updating"
+  | "learning";
+
 export type MessageRole    = "user" | "assistant";
-export type ActivePanel    = "chat" | "network" | "settings" | "hardware" | "devices" | "guardian";
+export type ActivePanel    = "chat" | "network" | "settings" | "hardware" | "devices" | "guardian" | "modules";
+
+export type ExpansionModuleId =
+  | "vision"
+  | "robotics"
+  | "drone"
+  | "smarthome"
+  | "knowledge"
+  | "mapping3d"
+  | "timeline"
+  | "devicenet"
+  | "mission"
+  | "diagnostics"
+  | "plugins";
 
 export interface Message {
   id:        string;
@@ -54,6 +82,14 @@ export interface TStore {
   // ── Visualizer
   visualizerMode:    VisualizerMode;
   setVisualizerMode: (m: VisualizerMode) => void;
+
+  // ── Boot / Awakening
+  isAwakening:       boolean;
+  setAwakening:      (v: boolean) => void;
+
+  // ── Future Modules Navigation
+  activeSubModule:   ExpansionModuleId;
+  setSubModule:      (m: ExpansionModuleId) => void;
 
   // ── Chat & Sessions
   activeSessionId:   string;
@@ -111,6 +147,14 @@ export const useTStore = create<TStore>((set) => ({
     try { localStorage.setItem("t_visualizer_mode", visualizerMode); } catch {}
     set({ visualizerMode });
   },
+
+  // ── Boot / Awakening
+  isAwakening:       true,
+  setAwakening:      (isAwakening) => set({ isAwakening }),
+
+  // ── Future Modules Navigation
+  activeSubModule:   "vision",
+  setSubModule:      (activeSubModule) => set({ activeSubModule }),
 
   // ── Chat & Sessions
   activeSessionId:   "default",

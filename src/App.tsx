@@ -4,15 +4,18 @@ import { useMemoryBoot } from "./hooks/useMemory";
 import { useBrainConnection, useBrainProfileSync, useBrainMemory } from "./hooks/useBridge";
 import { TopBar } from "./components/hud/TopBar";
 import { SideNav } from "./components/hud/SideNav";
+import { AwakeningScreen } from "./components/hud/AwakeningScreen";
 import { ChatPanel } from "./components/chat/ChatPanel";
 import { NetworkPanel } from "./components/network/NetworkPanel";
 import { SettingsPanel } from "./components/settings/SettingsPanel";
 import { HardwarePanel } from "./components/hardware/HardwarePanel";
 import { DevicesPanel }  from "./components/devices/DevicesPanel";
 import { GuardianPanel } from "./components/guardian/GuardianPanel";
+import { FutureModulesPanel } from "./components/modules/FutureModulesPanel";
 
 export default function App() {
   const activePanel = useTStore((s) => s.activePanel);
+  const isAwakening = useTStore((s) => s.isAwakening);
 
   useSystemStats(2000);
   useMemoryBoot();
@@ -21,55 +24,58 @@ export default function App() {
   useBrainMemory();
 
   return (
-    <div
-      className="scanline-overlay"
-      style={{
-        width: "100vw", height: "100vh",
-        background: "radial-gradient(ellipse at 30% 40%, #001428 0%, #000810 45%, #000006 100%)",
-        overflow: "hidden", position: "relative",
-      }}
-    >
-      {/* CRT scanline raster */}
+    <div style={{
+      width: "100vw", height: "100vh",
+      backgroundColor: "var(--u-void)",
+      overflow: "hidden", position: "relative",
+    }}>
+      {/* System Boot Awakening Animation */}
+      {isAwakening && <AwakeningScreen />}
+
+      {/* Atmospheric CRT Scanline Raster */}
+      <div className="ultron-scanlines" />
+
+      {/* Laser Scanning Line Sweep */}
+      <div className="scan-line" />
+
+      {/* Perspective Grid Projection Overlay */}
+      <div className="ultron-grid-projection" />
+
+      {/* Vignette Depth Fog */}
+      <div className="ultron-vignette" />
+
+      {/* Electric Red Ambient Atmospheric Glows */}
       <div style={{
-        position: "fixed", inset: 0, zIndex: 1, pointerEvents: "none",
-        background: "repeating-linear-gradient(0deg, transparent 0px, transparent 3px, rgba(0,212,255,0.007) 3px, rgba(0,212,255,0.007) 4px)",
+        position: "fixed", top: -150, left: -100, zIndex: 0, pointerEvents: "none",
+        width: 500, height: 500, borderRadius: "50%",
+        background: "radial-gradient(circle, rgba(255,0,51,0.08) 0%, transparent 70%)",
+        animation: "energy-pulse 4s ease-in-out infinite",
       }} />
 
-      {/* Holographic vignette */}
       <div style={{
-        position: "fixed", inset: 0, zIndex: 2, pointerEvents: "none",
-        background: "radial-gradient(ellipse at center, transparent 40%, rgba(0,0,12,0.65) 100%)",
+        position: "fixed", bottom: -120, right: -80, zIndex: 0, pointerEvents: "none",
+        width: 450, height: 450, borderRadius: "50%",
+        background: "radial-gradient(circle, rgba(128,0,22,0.08) 0%, transparent 70%)",
+        animation: "energy-pulse 5s ease-in-out 1s infinite",
       }} />
 
-      {/* Arc glow — top left */}
-      <div style={{
-        position: "fixed", top: -120, left: -80, zIndex: 0, pointerEvents: "none",
-        width: 400, height: 400, borderRadius: "50%",
-        background: "radial-gradient(ellipse, rgba(0,136,204,0.06) 0%, transparent 70%)",
-      }} />
-
-      {/* Arc glow — bottom right */}
-      <div style={{
-        position: "fixed", bottom: -100, right: -60, zIndex: 0, pointerEvents: "none",
-        width: 350, height: 350, borderRadius: "50%",
-        background: "radial-gradient(ellipse, rgba(0,212,255,0.04) 0%, transparent 70%)",
-      }} />
-
+      {/* TopBar & SideNav */}
       <TopBar />
       <SideNav />
 
-      {/* Main content */}
+      {/* Main Viewport Container */}
       <div style={{
         position: "fixed",
-        top: 52, left: 64, right: 0, bottom: 0,
+        top: 54, left: 68, right: 0, bottom: 0,
         zIndex: 10, overflow: "hidden",
       }}>
         {activePanel === "chat"     && <ChatPanel />}
         {activePanel === "network"  && <NetworkPanel />}
-        {activePanel === "hardware"  && <HardwarePanel />}
-        {activePanel === "devices"   && <DevicesPanel />}
-        {activePanel === "guardian"  && <GuardianPanel />}
-        {activePanel === "settings"  && <SettingsPanel />}
+        {activePanel === "hardware" && <HardwarePanel />}
+        {activePanel === "devices"  && <DevicesPanel />}
+        {activePanel === "guardian" && <GuardianPanel />}
+        {activePanel === "modules"  && <FutureModulesPanel />}
+        {activePanel === "settings" && <SettingsPanel />}
       </div>
     </div>
   );
