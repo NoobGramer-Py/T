@@ -101,6 +101,12 @@ async def websocket_endpoint(ws: WebSocket) -> None:
             elif msg_type == "ping":
                 await client.send({"type": "pong", "timestamp": asyncio.get_event_loop().time()})
 
+            elif msg_type == "models_status_request":
+                from brain.api.router import get_models_status
+                status_data = await get_models_status()
+                await client.send({"type": "models_status", "data": status_data})
+
+
     except WebSocketDisconnect:
         log.info(f"Client disconnected: {client.id}")
     finally:

@@ -1,7 +1,8 @@
 import { useTStore } from "../../store";
+import { ModelDashboard } from "./ModelDashboard";
 
 export function SettingsPanel() {
-  const { profile, setProfile, provider, setProvider } = useTStore();
+  const { profile, setProfile } = useTStore();
 
   return (
     <div style={{
@@ -11,36 +12,22 @@ export function SettingsPanel() {
     }}>
       <div>
         <div style={{ fontSize: 9, letterSpacing: 4, color: "rgba(160,170,176,0.6)", fontFamily: "var(--font-mono)" }}>
-          SYSTEM CONFIGURATION & API KEYS
+          SYSTEM CONFIGURATION & MODEL ROUTING ENGINE
         </div>
         <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: 3, color: "#ffffff", fontFamily: "var(--font-header)" }}>
-          ULTRON CONFIGURATION STORE
+          ULTRON SYSTEM CONFIGURATION
         </div>
       </div>
 
+      {/* Provider & Routing Health Dashboard */}
+      <ModelDashboard />
+
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
 
-        {/* AI Provider & API Keys */}
+        {/* API Credentials */}
         <div className="ultron-panel ultron-corner-brackets" style={{ padding: 24, borderRadius: 2 }}>
           <div style={{ fontSize: 12, letterSpacing: 3, color: "#ff0033", fontWeight: 700, fontFamily: "var(--font-header)", marginBottom: 16 }}>
-            NEURAL ENGINE PROVIDER
-          </div>
-
-          <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
-            <button
-              onClick={() => setProvider("groq")}
-              className={`ultron-btn ${provider === "groq" ? "ultron-btn-active" : ""}`}
-              style={{ flex: 1, justifyContent: "center" }}
-            >
-              GROQ CLOUD (FAST)
-            </button>
-            <button
-              onClick={() => setProvider("ollama")}
-              className={`ultron-btn ${provider === "ollama" ? "ultron-btn-active" : ""}`}
-              style={{ flex: 1, justifyContent: "center" }}
-            >
-              OLLAMA LOCAL (OFFLINE)
-            </button>
+            NEURAL API CREDENTIALS (.ENV STORE)
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -74,7 +61,7 @@ export function SettingsPanel() {
           </div>
         </div>
 
-        {/* User Identity & VM Configuration */}
+        {/* Operator Identity & Lab VM */}
         <div className="ultron-panel ultron-corner-brackets" style={{ padding: 24, borderRadius: 2 }}>
           <div style={{ fontSize: 12, letterSpacing: 3, color: "#ff0033", fontWeight: 700, fontFamily: "var(--font-header)", marginBottom: 16 }}>
             OPERATOR IDENTITY & LAB VM

@@ -4,7 +4,7 @@ import { useTStore } from "../store";
 
 // Starts the bridge connection once and keeps it alive for the app lifetime.
 export function useBrainConnection(): void {
-  const { setVisualizerMode } = useTStore();
+  const { setVisualizerMode, setModelSwitchNotice, setProviderHealth, setActiveModel, setActiveProvider, setLocalPreferred } = useTStore();
 
   useEffect(() => {
     bridge.connect();
@@ -15,12 +15,31 @@ export function useBrainConnection(): void {
         if (mode === "idle" || mode === "listening" || mode === "speaking") {
           setVisualizerMode(mode);
         }
+      } else if (msg.type === "model_switched") {
+        setModelSwitchNotice({
+          previousProvider: msg.previous_provider as string,
+          activeProvider: msg.active_provider as string,
+          model: msg.model as string,
+          reason: msg.reason as string,
+        });
+        setActiveProvider(msg.active_provider as string);
+        setActiveModel(msg.model as string);
+      } else if (msg.type === "models_status") {
+        const data = msg.data as any;
+        if (data?.health) setProviderHealth(data.health);
+        if (data?.localPreferred !== undefined) setLocalPreferred(data.localPreferred);
       }
     });
 
+    // Request initial model status when connected
+    setTimeout(() => {
+      bridge.send({ type: "models_status_request" });
+    }, 1000);
+
     return unsub;
-  }, [setVisualizerMode]);
+  }, [setVisualizerMode, setModelSwitchNotice, setProviderHealth, setActiveModel, setActiveProvider, setLocalPreferred]);
 }
+
 
 // Handles push-to-talk voice via brain pipeline.
 // Returns { startPTT, stopPTT, playAudio } — all stable references.

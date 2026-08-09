@@ -46,6 +46,7 @@ class SystemKernel:
         module_loader.register("execution", execution_engine)
 
         await module_loader.initialize_all()
+        await llm_router.initialize()
 
         health_monitor.update_status("kernel", "operational", "ok")
         state_manager.set("status", "operational", sender="kernel")
@@ -101,7 +102,12 @@ class SystemKernel:
         yield {"type": "status", "content": "Generating response..."}
         try:
             messages = memory_manager.short_term.get_messages(limit=10)
-            async for chunk, provider in llm_router.chat(messages=messages, system_prompt=prompt_ctx if prompt_ctx else "You are T AI OS."):
+            async for chunk, provider, switch_evt in llm_router.stream_chat(
+                messages=messages,
+                system_prompt=prompt_ctx if prompt_ctx else "You are T AI OS."
+            ):
+                if switch_evt:
+                    yield switch_evt
                 full_response += chunk
                 yield {"type": "token", "chunk": chunk, "provider": provider}
         except Exception as e:

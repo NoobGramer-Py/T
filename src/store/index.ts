@@ -113,9 +113,40 @@ export interface TStore {
   stats:    SystemStats;
   setStats: (s: Partial<SystemStats>) => void;
 
-  // ── AI provider
-  provider:    "groq" | "ollama";
-  setProvider: (p: "groq" | "ollama") => void;
+  // ── AI provider & Multi-Model Routing System
+  provider:    string;
+  setProvider: (p: string) => void;
+  activeModel: string;
+  setActiveModel: (m: string) => void;
+  activeProvider: string;
+  setActiveProvider: (p: string) => void;
+  routingReason: string;
+  setRoutingReason: (r: string) => void;
+  localPreferred: boolean;
+  setLocalPreferred: (v: boolean) => void;
+  providerHealth: Record<string, {
+    provider: string;
+    model: string;
+    requestsToday: number;
+    failures: number;
+    rateLimited: boolean;
+    temporarilyUnavailable: boolean;
+    quotaStatus: string;
+    lastSuccessfulRequest?: number | null;
+    lastFailure?: number | null;
+    cooldownUntil?: number | null;
+    missingModels?: string[];
+  }>;
+  setProviderHealth: (h: Record<string, any>) => void;
+  modelSwitchNotice: {
+    previousProvider: string;
+    activeProvider: string;
+    model: string;
+    reason: string;
+  } | null;
+  setModelSwitchNotice: (notice: any) => void;
+  clearModelSwitchNotice: () => void;
+
 
   // ── Brain memories (received via memory_saved events)
   brainMemories:   Record<string, string>;
@@ -183,9 +214,23 @@ export const useTStore = create<TStore>((set) => ({
   stats: { cpuPercent: 0, ramPercent: 0, diskPercent: 0, uptime: 0, networkRxKbps: 0, networkTxKbps: 0 },
   setStats: (partial) => set((s) => ({ stats: { ...s.stats, ...partial } })),
 
-  // ── AI provider
-  provider:    "groq",
+  // ── AI provider & Multi-Model Routing System
+  provider:    "grok",
   setProvider: (provider) => set({ provider }),
+  activeModel: "grok-2-latest",
+  setActiveModel: (activeModel) => set({ activeModel }),
+  activeProvider: "grok",
+  setActiveProvider: (activeProvider) => set({ activeProvider }),
+  routingReason: "Strong general-purpose model",
+  setRoutingReason: (routingReason) => set({ routingReason }),
+  localPreferred: false,
+  setLocalPreferred: (localPreferred) => set({ localPreferred }),
+  providerHealth: {},
+  setProviderHealth: (providerHealth) => set({ providerHealth }),
+  modelSwitchNotice: null,
+  setModelSwitchNotice: (modelSwitchNotice) => set({ modelSwitchNotice }),
+  clearModelSwitchNotice: () => set({ modelSwitchNotice: null }),
+
 
   // ── Brain memories
   brainMemories:  {},

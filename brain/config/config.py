@@ -14,12 +14,31 @@ load_dotenv()
 
 @dataclass
 class ModelConfig:
-    provider: str = os.getenv("LLM_PROVIDER", "openai")
-    model_name: str = os.getenv("LLM_MODEL", "gpt-4o")
-    api_key: Optional[str] = os.getenv("LLM_API_KEY", os.getenv("OPENAI_API_KEY"))
+    provider: str = os.getenv("LLM_PROVIDER", "grok")
+    model_name: str = os.getenv("LLM_MODEL", "grok-2-latest")
+    api_key: Optional[str] = os.getenv("LLM_API_KEY", os.getenv("GROQ_API_KEY"))
     temperature: float = float(os.getenv("LLM_TEMPERATURE", "0.7"))
     max_tokens: int = int(os.getenv("LLM_MAX_TOKENS", "4096"))
     endpoint: Optional[str] = os.getenv("LLM_ENDPOINT", None)
+
+    # Multi-provider credentials
+    xai_api_key: Optional[str] = os.getenv("XAI_API_KEY")
+    gemini_api_key: Optional[str] = os.getenv("GEMINI_API_KEY")
+    groq_api_key: Optional[str] = os.getenv("GROQ_API_KEY")
+    cerebras_api_key: Optional[str] = os.getenv("CEREBRAS_API_KEY")
+    openrouter_api_key: Optional[str] = os.getenv("OPENROUTER_API_KEY")
+    github_api_key: Optional[str] = os.getenv("GITHUB_MODELS_API_KEY", os.getenv("GITHUB_TOKEN"))
+    ollama_base_url: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+
+    # Routing settings
+    local_preferred: bool = os.getenv("LOCAL_PREFERRED", "false").lower() == "true"
+    fallback_order: list[str] = field(default_factory=lambda: [
+        "grok", "gemini", "groq", "cerebras", "openrouter", "github", "ollama"
+    ])
+    local_default_model: str = os.getenv("LOCAL_DEFAULT_MODEL", "qwen3:14b")
+    local_reasoning_model: str = os.getenv("LOCAL_REASONING_MODEL", "qwen3:30b")
+    cooldown_seconds: float = float(os.getenv("PROVIDER_COOLDOWN_SECONDS", "60.0"))
+
 
 
 @dataclass

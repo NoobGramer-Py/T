@@ -3,3 +3,5 @@
 {"timestamp": "2026-08-05T13:28:33Z", "action": "file_write", "subject": "test.txt", "authorized": false, "details": {"reason": "awaiting_user_confirmation"}}
 {"timestamp": "2026-08-05T13:28:42Z", "action": "file_read", "subject": "test.txt", "authorized": true, "details": {"reason": "authorized"}}
 {"timestamp": "2026-08-05T13:28:42Z", "action": "file_write", "subject": "test.txt", "authorized": false, "details": {"reason": "awaiting_user_confirmation"}}
+{"timestamp": "2026-08-09T11:22:12Z", "action": "file_read", "subject": "test.txt", "authorized": true, "details": {"reason": "authorized"}}
+{"timestamp": "2026-08-09T11:22:12Z", "action": "file_write", "subject": "test.txt", "authorized": false, "details": {"reason": "awaiting_user_confirmation"}}

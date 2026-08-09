@@ -85,6 +85,7 @@ export function ChatPanel() {
     messages, isTyping, voiceEnabled, voiceListening,
     sessions, activeSessionId, setActiveSessionId, setMessages,
     addSession, removeSession, setVisualizerMode,
+    modelSwitchNotice, clearModelSwitchNotice,
   } = useTStore();
   const { send }   = useChat();
   const [input, setInput] = useState("");
@@ -294,6 +295,41 @@ export function ChatPanel() {
 
         {/* Command Stream Log */}
         <div style={{ flex: 1, overflowY: "auto", padding: "20px 28px 10px" }}>
+          {modelSwitchNotice && (
+            <div
+              className="fade-in-scale"
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "8px 14px",
+                marginBottom: 16,
+                background: "rgba(255, 170, 0, 0.1)",
+                border: "1px solid rgba(255, 170, 0, 0.4)",
+                borderRadius: 2,
+                fontFamily: "var(--font-mono)",
+                fontSize: 11,
+                color: "#ffcc00",
+              }}
+            >
+              <span>
+                ⚡ <strong>Model switched to {modelSwitchNotice.activeProvider} ({modelSwitchNotice.model})</strong> — Reason: previous provider unavailable
+              </span>
+              <button
+                onClick={clearModelSwitchNotice}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "#ffcc00",
+                  cursor: "pointer",
+                  fontSize: 12,
+                  marginLeft: 12,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          )}
           {messages.map((m) => (
             <MessageBubble key={m.id} role={m.role} content={m.content} timestamp={m.timestamp} />
           ))}
